@@ -2,89 +2,99 @@
 
 import pandas as pd
 import numpy as np
-import argparse,operator,os,random,sys,time
-import pysam
-import re
-import collections
-import warnings
 import math
+import sys,os,argparse,warnings
+import pysam
+import collections
+import re
 
 def parseargs():
-    parser=argparse.ArgumentParser(description="Calculate the number of read breakpoints per contig per base")
+    parser = argparse.ArgumentParser(description="calculate pileup features")
+    parser.add_argument("--pileup",help="path to pileup file")
     parser.add_argument('--bam',help='index bam file for alignment')
-    parser.add_argument('--output',help='output directory for MetaREA')  
-    parser.add_argument("--mlen",type=int, default=5000,help='minimum contig length [default: 5000bp]')  
-    args=parser.parse_args()
+    parser.add_argument("--output",help="output directory for MetaREA results")
+    parser.add_argument("--mlen",type=int, default=5000,help='minimum contig length [default: 5000bp]')
+    args = parser.parse_args()
     return args
-        
-def read_breakpoint_per_contig(samfile,ref,lens):   
-    reads=samfile.fetch(contig=ref)      
-    break_count={"breakcount":[0]*lens,"readcount":[0]*lens}
-    for read in reads:
-        ref_end=read.reference_end
-        ref_start=read.reference_start
-        read_start=read.query_alignment_start
-        read_end=read.query_alignment_end
-        for i in range(ref_start,ref_end): break_count["readcount"][i] += 1
-        if read.is_supplementary: 
-            if re.match('^([0-9]+H)',read.cigarstring):
-                break_count["breakcount"][read.get_blocks()[0][0]]+=1
-            else:
-                if len(read.get_blocks())==1:
-                    break_count["breakcount"][read.get_blocks()[0][1]-1]+=1    
-                else:
-                    break_count["breakcount"][read.get_blocks()[-1][1]-1]+=1                     
-        if read.get_cigar_stats()[0][4]>0:
-            if re.match('^([0-9]+S)',read.cigarstring):
-                break_count["breakcount"][read.get_blocks()[0][0]]+=1
-            if (read.cigarstring).endswith('S'): 
-                if len(read.get_blocks())==1:
-                    break_count["breakcount"][read.get_blocks()[0][1]-1]+=1 
-                else:                
-                    break_count["breakcount"][read.get_blocks()[-1][1]-1]+=1   
-    data=pd.DataFrame(break_count)      
-    data['position']=data.index+1
-    data['contig']=ref  
-    data=data.loc[data['breakcount']>0,]
+    
+def contig_pool(samfile):
+    contig_len={}
+    for (ref,lens) in zip(samfile.references,samfile.lengths):
+        contig_len[ref]=lens
+    return contig_len        
+         
+def pileup_window_cal(pileup_dict):
+    window_dict={"contig":[],"start_pos":[],"correct_portion":[],"ambiguous_portion":[],"disagree_portion":[],
+    "deletion_portion":[],"insert_portion":[],"coverage":[],"deviation":[]}       
+    for i in range(300,len(pileup_dict['correct']),100):
+        start=i
+        end=i+100
+        total=np.sum(pileup_dict['depth'][start:end])
+        window_dict["contig"].append(pileup_dict["contig"][0])
+        window_dict["start_pos"].append(start)
+        window_dict["correct_portion"].append(np.sum(pileup_dict['correct'][start:end])/total)
+        window_dict["ambiguous_portion"].append(np.sum(pileup_dict["ambiguous"][start:end])/total)        
+        window_dict["insert_portion"].append(np.sum(pileup_dict['insert'][start:end])/total)    
+        window_dict["deletion_portion"].append(np.sum(pileup_dict['deletion'][start:end])/total)   
+        window_dict["disagree_portion"].append(np.sum(pileup_dict['disagree'][start:end])/total) 
+        window_dict["coverage"].append(np.mean(pileup_dict["depth"][start:end]))
+        window_dict["deviation"].append(np.sqrt(np.var(pileup_dict["depth"][start:end]))/np.mean(pileup_dict["depth"][start:end]))        
+        if len(pileup_dict['correct']) - (i+100) <= 300:
+                break
+    return window_dict                                                        
+            
+def pileupfile_parse(args,samfile):
+    """
+    process pileup file
+    """    
+    samfile=pysam.AlignmentFile(args.bam,"rb") 
+    contig_len=contig_pool(samfile)
+    prev_contig=None    
+    pileup_dict={"contig":[],"correct":[],"ambiguous":[],"insert":[],
+        "deletion":[],"disagree":[],"depth":[]} 
+    window_pileup_dict={"contig":[],"start_pos":[],"correct_portion":[],"ambiguous_portion":[],"disagree_portion":[],
+    "deletion_portion":[],"insert_portion":[],"normalized_coverage":[],"normalized_deviation":[],"mean_coverage":[]}  
+    for line in open(args.pileup,"r"):
+        record = line.strip().split('\t')
+        if contig_len[record[0]] < args.mlen:
+            continue            
+        if prev_contig is None:
+            prev_contig=record[0]          
+        if record[0] !=prev_contig:  
+            window_data=pileup_window_cal(pileup_dict) 
+            mean_cov=np.mean(window_data["coverage"])
+            window_pileup_dict["contig"].extend(window_data["contig"]) 
+            window_pileup_dict["start_pos"].extend(window_data["start_pos"]) 
+            window_pileup_dict["correct_portion"].extend(window_data["correct_portion"]) 
+            window_pileup_dict["ambiguous_portion"].extend(window_data["ambiguous_portion"]) 
+            window_pileup_dict["disagree_portion"].extend(window_data["disagree_portion"]) 
+            window_pileup_dict["deletion_portion"].extend(window_data["deletion_portion"])   
+            window_pileup_dict["insert_portion"].extend(window_data["insert_portion"])     
+            window_pileup_dict["normalized_coverage"].extend(window_data["coverage"]/mean_cov)
+            window_pileup_dict["normalized_deviation"].extend(window_data["deviation"])
+            window_pileup_dict["mean_coverage"].extend([mean_cov]*len(window_data["start_pos"]))                                           
+            pileup_dict={"contig":[],"correct":[],"ambiguous":[],"insert":[],"deletion":[],"disagree":[],"depth":[]}
+            prev_contig = record[0]                
+        pileup_dict['contig'].append(record[0])
+        match_detail=record[4]        
+        pileup_dict['correct'].append(match_detail.count('.')+match_detail.count(','))
+        pileup_dict['ambiguous'].append(match_detail.count('*'))
+        pileup_dict['insert'].append(match_detail.count("+"))
+        pileup_dict['deletion'].append(match_detail.count("-"))
+        pileup_dict['depth'].append(int(record[3]))
+        st = ''.join(re.split('[\+|\-][0-9]+[ATCGatcg]+',match_detail))
+        numd = st.count('a')+st.count('A')+st.count('t')+st.count('T')+st.count('c')+st.count('C')+st.count('g')+st.count('G')
+        pileup_dict['disagree'].append(numd)
+    if not os.path.exists(args.output+"/temp/pileup"):
+        os.system("mkdir -p "+ args.output+"/temp/pileup")            
+    data=pd.DataFrame(window_pileup_dict)                                                       
+    data.to_csv(args.output+"/temp/pileup/pileup_feature.txt",sep="\t") 
     return data
-                                            
-def window_break_cal(data):
-    data['start_pos']=[math.floor(x)*100+300 for x in (data['position']-300)/100]
-    data=data.loc[data['start_pos']>=300,]
-    data['read_breakpoint_ratio']=data['read_breakpoint_count']/data['read_count']
-    data['index']=data['contig']+'_'+[str(int(x)) for x in data['start_pos']]
-    grouped=data.groupby(['index'])
-    read_break_ratio=pd.DataFrame(grouped['read_breakpoint_ratio'].max()) 
-    read_break_ratio['contig']=['_'.join(x.split("_")[:-1]) for x in read_break_ratio.index]
-    read_break_ratio['start_pos']=[int(x.split("_")[-1]) for x in read_break_ratio.index]   
-    read_break_ratio.index=range(read_break_ratio.shape[0])
-    return read_break_ratio     
-    
-def read_breakpoint_cal(args,samfile):
-    references=samfile.references
-    lengths=samfile.lengths
-    read_breakpoint_pool={"contig":[],"position":[],"read_breakpoint_count":[],"read_count":[]}
-    for ref,lens in zip(references,lengths):
-        if lens < args.mlen:
-            continue
-        contig_break_data=read_breakpoint_per_contig(samfile,ref,lens)               
-        if contig_break_data.shape[0]>0:
-            read_breakpoint_pool["read_breakpoint_count"].extend(list(contig_break_data['breakcount']))
-            read_breakpoint_pool["read_count"].extend(list(contig_break_data['readcount'])) 
-            read_breakpoint_pool["contig"].extend([ref]*contig_break_data.shape[0])
-            read_breakpoint_pool["position"].extend(list(contig_break_data['position'])) 
-    read_breakpoint_data=pd.DataFrame(read_breakpoint_pool)    
-    read_breakpoint_data.to_csv(args.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt",sep="\t")
-    window_read_breakpoint_data=window_break_cal(read_breakpoint_data)                        
-    window_read_breakpoint_data.to_csv(args.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt",sep="\t")         
-    
+                                                
 def main():
     args=parseargs()
-    warnings.filterwarnings("ignore")
-    if not os.path.isdir(args.output+"/temp/read_breakpoint"):
-        os.system("mkdir -p "+ args.output+"/temp/read_breakpoint")  
-    samfile=pysam.AlignmentFile(args.bam,"rb") 
-    read_breakpoint_cal(args,samfile)  
-                         
-if __name__=="__main__":
-    main()  
+    warnings.filterwarnings("ignore")       
+    data = pileupfile_parse(args)  
+                                                         
+if __name__=='__main__':
+    main()    
