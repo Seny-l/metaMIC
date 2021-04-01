@@ -15,6 +15,7 @@ import joblib
 import warnings
 from sklearn.ensemble import IsolationForest
 from scipy import stats
+import logging
 
 base_path="/".join(sys.argv[0].split("/")[:-1])
 
@@ -25,8 +26,9 @@ def get_opts():
     parser.add_option("-p","--r",dest="read",help="smart pairing (ignoring #2 fasta/q)") 
     parser.add_option("-c","--contig",dest="assemblies",help="input assembly fasta file")
     parser.add_option("--bam",dest="bamfile",help="index bam file for alignment") 
-    parser.add_option("-a","--assembler",dest="assembler",default="MEGAHIT",help="The assembler used for assembly fasta file[MEGAHIT/IDBA_UD]") 
-    parser.add_option("-o","--output",dest="output",help='output directory for MetaREA results')
+    parser.add_option("-a","--assembler",dest="assembler",default="MEGAHIT",help="The assembler-specific model or user-trained model used for assembled fasta file [MEGAHIT/IDBA_UD/Train]") 
+    parser.add_option("-o","--output",dest="output",help='output directory for AIM results')
+    parser.add_option("-m","--mode", dest="mode",default='meta',help="Applied to single/metagenomic assemblies [meta/single]")
     parser.add_option("-t","--threads",dest="threads",type=int, default=8,help='Maximum number of threads [default: 8]')
     parser.add_option("-l","--mlen",dest="min_length",type=int, default=5000,help='Minimum contig length [default: 5000bp]') 
     parser.add_option("-s","--slen",dest="split_length",type=int, default=1000,help='Minimum length to be broken [default: 1000bp]') 
@@ -34,12 +36,14 @@ def get_opts():
     parser.add_option("--bwa", dest="bwa",default='bwa',help="path to bwa") 
     parser.add_option("--bedtools", dest="bedtools",default='bedtools',help="path to bedtools")
     parser.add_option("--jellyfish",dest="jellyfish",default="jellyfish",help="path to jellyfish")  
+    parser.add_option("--train",dest="train",action="store_true",help='Training on user-specific datasets')  
+    parser.add_option("--label",dest="label",help='Misassembled label for training assemblies') 
     parser.add_option("--no-breakpoints",dest="no_break",action="store_true",help='Do not locate possible breakpoints')    
     parser.add_option("--no-correct",dest="no_correct",action="store_true",help='Do not break misassembled contigs at breakpoints')
-    parser.add_option("-m","--mode", dest="mode",default='meta',help="Applied to single/metagenomic assemblies [meta/single]")
     (options, args) = parser.parse_args()
     return (options, args)  
        
+
 
 def filter_contig(options):
     """
@@ -70,69 +74,10 @@ def mapping(options):
     os.system(command_index)  
     return options
     
-def fragcoverage_cal(options):
-    # calculate fragment coverage for assemblies
-    if not os.path.exists(options.output+"/temp/coverage/fragment_coverage.txt"):        
-        coverage_command=' '.join(['python3',os.path.join(base_path,"frag_coverage.py"),
-        '--bam',options.bamfile,'--output',options.output,'--mlen', str(options.min_length)])
-        os.system(coverage_command) 
+def extract_feature(options):
+    extract_command = ' '.join(['python',os.path.join(base_path,"extract.py"),'--bam',options.bamfile,'--contig',options.assemblies,'--output',options.output,'--mlen',str(options.min_length),'--samtools',options.samtools,'--jellyfish',options.jellyfish,"--thread",str(options.threads)]) 
+    os.system(extract_command)                                   
     
-def read_feature(options):
-    # extract features containing in mapped reads
-    if not os.path.exists(options.output+"/temp/read_feature/read_feature.txt"):
-        print("calculate paired read features...")    
-        read_command=' '.join(['python3',os.path.join(base_path,"read_classify.py"),'--bam',options.bamfile,'--output',options.output,'--mlen',str(options.min_length)]) 
-        os.system(read_command)                 
-    
-def coverage_cal(options):
-    # calculate coverage for assemblies
-    if not os.path.exists(options.output+"/temp/coverage/contigs.depth"):
-        command=options.bedtools + ' genomecov -ibam ' + options.bamfile + " -d > " + options.output+"/temp/coverage/contigs.depth"
-        os.system(command)
-    if not os.path.exists(options.output+"/temp/coverage/coverage.txt"):        
-        coverage_command=' '.join(['python3',os.path.join(base_path,"coverage.py"),
-        '--bam',options.bamfile,'--output',options.output,'--bedtools',options.bedtools, "--mlen",str(options.min_length)])
-        os.system(coverage_command) 
-           
-def pileup(options):
-    print("calculate nucleotide variants...")
-    # extract pileup features
-    bam=options.bamfile
-    pileup_file=options.output+"/temp/pileup/contigs_pipelup.out"
-    if not os.path.exists(pileup_file):
-        os.system("mkdir -p " + options.output+"/temp/pileup")
-        pileup_command=' '.join([options.samtools,'mpileup -C 50 -A -f',options.assemblies,bam," | awk","'","$3 !=","\"N\"","'",">",pileup_file])                     
-        os.system(pileup_command)  
-    if not os.path.exists(options.output+"/temp/pileup/pileup_feature.txt"):
-        pileup_command=' '.join(['python3',os.path.join(base_path,"pileup_parse.py"),"--pileup",pileup_file,"--output",options.output, "--mlen",str(options.min_length)])
-        os.system(pileup_command)  
-    
-def read_breakpoint(options):
-    # count the number of read breakpoints per base/window  
-    print("calculate read breakpoints...")    
-    if not os.path.exists(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"):
-        read_breakpoint_command=' '.join(['python3',os.path.join(base_path,"read_breakpoint.py"),"--bam",options.bamfile,"--output",options.output,"--mlen",str(options.min_length)])          
-        os.system(read_breakpoint_command)  
-    
-def KAD_cal(options):
-    # split contigs and extract mapped reads
-    if not os.path.exists(options.output+"/temp/KAD/KAD_window_data.txt"):
-        split_command=' '.join(['sh',os.path.join(base_path,"split_sam.sh"),options.assemblies,options.output,options.samtools])            
-        os.system(split_command)           
-        KAD_command=' '.join(['python3',os.path.join(base_path,"KAD_cal.py"),'--bam',options.bamfile,'--contig',options.assemblies,'--output',options.output,'--thread',str(options.threads),'--jellyfish',options.jellyfish]) 
-        os.system(KAD_command)
-
-def read_feature_ratio(data):
-    data['proper_read_ratio']=data['proper_read_count']/data['read_count'] 
-    data['inversion_read_ratio']=data['inversion_read_count']/data['proper_read_count']   
-    data['clipped_read_ratio']=data['clipped_read_count']/data['proper_read_count']
-    data['supplementary_read_ratio']=data['supplementary_read_count']/data['proper_read_count']
-    data['discordant_loc_ratio']=data['discordant_loc_count']/data['proper_read_count']
-    data['discordant_size_ratio']=data['discordant_size_count']/data['proper_read_count']
-    data = data.fillna(0)
-    data=data.loc[:,['contig','start_pos','proper_read_ratio','inversion_read_ratio','clipped_read_ratio',
-    'supplementary_read_ratio','discordant_loc_ratio','discordant_size_ratio','length']]
-    return data
     
 def cov_thread_cal(data):
     up = np.percentile(np.array(data),95)
@@ -140,7 +85,7 @@ def cov_thread_cal(data):
     return up,low
         
 
-def contig_fea(data):
+def contig_fea_generate(data):
     # transfer window based features to contig based feature
     grouped=data.groupby(['contig'])   
     mean_data=grouped.mean()   
@@ -166,8 +111,7 @@ def contig_fea(data):
     break_data=pd.DataFrame(grouped['read_breakpoint_ratio'].max())
     break_data.columns=['read_breakpoint_max']
     contig_data=pd.concat([mean_data,width_data,dev_data,break_data],axis=1) 
-    features=['coverage_width', 'deviation_width', 'normalized_coverage', 
-    'normalized_deviation', 'window_cov_dev', 'fragment_width', 'fragment_deviation_width',
+    features=['coverage_width', 'deviation_width','normalized_deviation', 'window_cov_dev', 'fragment_width', 'fragment_deviation_width',
     'normalized_fragment_deviation', 'window_frag_cov_dev', 'proper_read_ratio', 
     'clipped_read_ratio', 'supplementary_read_ratio', 'inversion_read_ratio', 'discordant_loc_ratio', 
     'discordant_size_ratio', 'read_breakpoint_ratio', 'proper_read_width', 'clipped_read_width', 
@@ -180,60 +124,72 @@ def contig_fea(data):
     return contig_data
                  
                 
-def data_generation(options):   
-    KAD_data=pd.read_csv(options.output+"/temp/KAD/KAD_window_data.txt",sep="\t",index_col=0)
-    coverage=pd.read_csv(options.output+"/temp/coverage/coverage.txt",sep="\t",index_col=0)
-    fragment_coverage=pd.read_csv(options.output+"/temp/coverage/fragment_coverage.txt",sep="\t",index_col=0)
-    coverage_data=pd.merge(fragment_coverage,coverage,on=['contig','start_pos'])
-    read_discordant_loc=pd.read_csv(options.output+"/temp/read_feature/discordant_loc_feature.txt",sep="\t",index_col=0)   
-    read_discordant_size=pd.read_csv(options.output+"/temp/read_feature/discordant_size_feature.txt",sep="\t",index_col=0)    
-    read_feature=pd.read_csv(options.output+"/temp/read_feature/read_feature.txt",sep="\t",index_col=0) 
-    read_data=pd.merge(read_discordant_loc,read_discordant_size,on=['contig','start_pos'],how='right') 
-    read_data=pd.merge(read_feature,read_data,how='left',on=['contig','start_pos'])  
-    read_data=read_data.fillna(0) 
-    read_data=read_feature_ratio(read_data)    
-    pileup_data=pd.read_csv(options.output+"/temp/pileup/pileup_feature.txt",sep="\t",index_col=0)  
-    window_read_breakpoint=pd.read_csv(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt",sep="\t",index_col=0)
-    window_data=pd.merge(pileup_data,KAD_data,on=['contig','start_pos'])
-    window_data=pd.merge(window_data,coverage_data,on=['contig','start_pos'])  
-    window_data['coverage_diff']=window_data['normalized_coverage']-window_data['normalized_fragment_coverage'] 
-    window_data=pd.merge(window_data,window_read_breakpoint,on=['contig','start_pos'],how='left')
-    window_data=window_data.fillna(0)
-    window_data=pd.merge(window_data,read_data)
-    window_data=window_data.loc[window_data['mean_coverage']>5,]
-    os.system("mkdir -p "+options.output+"/feature_matrix")
+def cal_feature(options):   
+    read_feature = pd.read_csv(options.output+"/temp/read_feature/read_feature.txt",sep="\t",index_col=0)
+    read_feature['proper_read_ratio'] = read_feature['proper_read_count']/read_feature['read_count']
+    read_feature['inversion_read_ratio'] = read_feature['inversion_read_count']/read_feature['proper_read_count']
+    read_feature['clipped_read_ratio'] = read_feature['clipped_read_count']/read_feature['proper_read_count']
+    read_feature['supplementary_read_ratio'] = read_feature['supplementary_read_count']/read_feature['proper_read_count']
+    read_feature['discordant_loc_ratio'] = read_feature['discordant_loc_count']/read_feature['proper_read_count']
+    read_feature['discordant_size_ratio'] = read_feature['discordant_size_count']/read_feature['proper_read_count']
+    window_read_data = read_feature.loc[:,['contig','start_pos','proper_read_ratio','inversion_read_ratio','clipped_read_ratio','supplementary_read_ratio','discordant_loc_ratio','discordant_size_ratio','length']]    
+    frag_coverage = pd.read_csv(options.output+"/temp/coverage/fragment_coverage.txt",sep="\t",index_col=0)    
+    pileup_feature = pd.read_csv(options.output+"/temp/pileup/pileup_feature.txt",sep="\t",index_col=0)
+    KAD_feature = pd.read_csv(options.output+"/temp/KAD/KAD_window_data.txt",sep="\t",index_col=0)            
+    breakpoint_data = pd.read_csv(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt",sep="\t",index_col=0)
+    window_data = pd.merge(window_read_data,frag_coverage,on=['contig','start_pos'])
+    window_data = pd.merge(window_data,pileup_feature,on=['contig','start_pos'])
+    window_data = pd.merge(window_data,KAD_feature,on=['contig','start_pos'])
+    window_data = pd.merge(window_data,breakpoint_data,on=['contig','start_pos'],how='left')
+    window_data = window_data.fillna(0)    
+    window_data['coverage_diff'] = window_data['normalized_coverage'] - window_data['normalized_fragment_coverage']
+    os.system("mkdir -p "+options.output+"/feature_matrix")    
+    window_data = window_data.loc[window_data['mean_coverage']>5,]
     window_data.to_csv(options.output+"/feature_matrix/window_fea_matrix.txt",sep="\t")
-    contig_data=contig_fea(window_data)
-    contig_data.to_csv(options.output+"/feature_matrix/contig_fea_matrix.txt",sep="\t")    
-    return contig_data
+    contig_data = contig_fea_generate(window_data)          
+    contig_data.to_csv(options.output+"/feature_matrix/contig_fea_matrix.txt",sep="\t")      
+    return contig_data 
+    
+def check_feature(options):
+    if not os.path.getsize(options.output+"/temp/read_feature/read_feature.txt"):
+        logging.error("Can not find file: " + options.output+"/temp/read_feature/read_feature.txt")
+    if not os.path.getsize(options.output+"/temp/coverage/fragment_coverage.txt"):
+        logging.error("Can not find file: " + options.output+"/temp/coverage/fragment_coverage.txt")    
+    if not os.path.getsize(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"): 
+        logging.error("Can not find file: " + options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt")
+    if not os.path.getsize(options.output+"/temp/pileup/pileup_feature.txt"): 
+        logging.error("Can not find file: " + options.output+"/temp/pileup/pileup_feature.txt")        
+    if not os.path.getsize(options.output+"/temp/KAD/KAD_window_data.txt"):                                          
+        logging.error("Can not find file: " + options.output+"/temp/KAD/KAD_window_data.txt")       
 
 def predict(options,data):
     # Generate MetaREA contig scores
     min_length=options.min_length
     test_data = data.loc[data['length']>min_length,data.columns!='length']
     if options.assembler=='MEGAHIT':
-        model_path=os.path.join(base_path,"model/MEGAHIT")
+        model_path=os.path.join(base_path,"dataset/MEGAHIT/model3")
     elif options.assembler=='IDBA_UD':
         model_path=os.path.join(base_path,"model/IDBA_UD") 
+    elif options.assembler=='Train':
+        model_path = os.path.join(base_path,"train_model")                
     else:
         model_path=os.path.join(base_path,"model/merge")        
     score=pd.DataFrame(np.zeros([test_data.shape[0],10])) 
     score.index=test_data.index   
-    #model_path='/home1/Laisenying/Data-analysis/projects/assembly_quality/MetaREA/model/MEGAHIT'            
     for i in range(10):                                                                                  
         rf=joblib.load(model_path+"/RF"+str(i)+'.pkl')
         pro=pd.DataFrame(rf.predict_proba(test_data))  
         pro.index=test_data.index
         score.loc[pro.index,i] = pro[1]
-    score['MetaREA_contig_score']=score.mean(axis=1)
-    score=score.loc[:,['MetaREA_contig_score']]
+    score['aim_contig_score']=score.mean(axis=1)
+    score=score.loc[:,['aim_contig_score']]
     score['length']=data.loc[score.index,'length']  
-    score.to_csv(options.output+"/MetaREA_contig_score.txt",sep="\t")    
+    score.to_csv(options.output+"/aim_contig_score.txt",sep="\t")    
     return score  
 
 def findcut(score):
     # find score cutoff to identify candidate misassembled contigs
-    score_cut=np.percentile(score['MetaREA_contig_score'],98)
+    score_cut=np.percentile(score['aim_contig_score'],98)
     return score_cut
 
 def contig_pos(data):
@@ -262,18 +218,15 @@ def Isolation_forest(options,window_data):
     Xdata=window_data.loc[:,features]    
     n_samples=Xdata.shape[0]    
     if options.mode=='meta':
-        outlier_fraction=0.001
+        iso_parameter={"outlier_fraction":0.001,"outlier_threshold":0.01}
     else:
-        outlier_fraction=0.0001                    
+        iso_parameter={"outlier_fraction":0.0001,"outlier_threshold":0.001}                  
     # fit the model
-    clf=IsolationForest(contamination=outlier_fraction)
+    clf=IsolationForest(contamination=iso_parameter["outlier_fraction"])
     clf.fit(Xdata)
     score_pred=clf.decision_function(Xdata)
     Xdata['outlier_score']=-score_pred
-    if options.mode=='meta':
-        threshold=stats.scoreatpercentile(-score_pred,100*(1-0.01))
-    else:
-        threshold=stats.scoreatpercentile(-score_pred,100*(1-0.001))                
+    threshold=stats.scoreatpercentile(-score_pred,100*(1-iso_parameter["outlier_threshold"]))                
     Xdata['outlier_thred']=threshold
     score_pred_data=Xdata.loc[:,['outlier_score','outlier_thred','read_breakpoint_ratio']]
     score_pred_data['start_pos']=[int(x.split("_")[-1]) for x in score_pred_data.index]
@@ -283,10 +236,10 @@ def Isolation_forest(options,window_data):
 def meta_breakpoint_detect(options,filter_score):
     # identify misassembly breakpoints on metagenomic misassembled contigs
     if not os.path.exists(options.output+"/feature_matrix/window_fea_matrix.txt"):
-        print("Missing window feature matrix file")
+        logging.error("Missing window feature matrix file:" + options.output+"/feature_matrix/window_fea_matrix.txt")
         exit(-1)
     if not os.path.exists(options.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt"):
-        print("Missing read breakpoint file")
+        logging.error("Missing read breakpoint file:"+ options.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt")
         exit(-1)            
     window_data=pd.read_csv(options.output+"/feature_matrix/window_fea_matrix.txt",sep="\t",index_col=0)
     window_data.index=window_data['contig']
@@ -301,7 +254,7 @@ def meta_breakpoint_detect(options,filter_score):
     for contig in np.unique(score_pred_data['contig']):
         contig_outlier_score=score_pred_data.iloc[contig_to_pos[contig],]
         contig_outlier_score=contig_outlier_score.iloc[np.argsort(-contig_outlier_score['outlier_score']),]
-        contig_outlier_score=contig_outlier_score.iloc[:2,]
+        contig_outlier_score=contig_outlier_score.iloc[:1,]
         contig_outlier_score=contig_outlier_score.loc[:,['contig','start_pos','outlier_score','outlier_thred','read_breakpoint_ratio']]
         outlier_data=pd.concat([outlier_data,contig_outlier_score])
     read_breakpoint=pd.read_csv(options.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt",sep="\t",index_col=0)
@@ -313,23 +266,21 @@ def meta_breakpoint_detect(options,filter_score):
     result=result.drop_duplicates(['contig'])
     result.loc[result['position']==0,'position']=result.loc[result['position']==0,'start_pos']+50
     result['length']=list(filter_score.loc[result['contig'],'length'])
-    result['MetaREA_contig_score']=list(filter_score.loc[result['contig'],'MetaREA_contig_score'])
+    result['aim_contig_score']=list(filter_score.loc[result['contig'],'aim_contig_score'])
     breakpoint_result=result.loc[:,['contig', 'position', 'read_breakpoint_count', 'read_count',
-        'read_breakpoint_ratio', 'outlier_score',"outlier_thred",'MetaREA_contig_score',"length"]]
+        'read_breakpoint_ratio', 'outlier_score',"outlier_thred",'aim_contig_score',"length"]]
     breakpoint_result.columns=['contig', 'misassembly_breakpoint', 'read_breakpoint_count', 'read_count',
-       'read_breakpoint_ratio','outlier_score',"outlier_thred",'MetaREA_contig_score',"contig_length"]       
+       'read_breakpoint_ratio','outlier_score',"outlier_thred",'aim_contig_score',"contig_length"]       
     breakpoint_result.to_csv(options.output+"/mis_breakpoint.txt",sep="\t")   
     return breakpoint_result     
-    
-    
-
+        
 def single_breakpoint_detect(options):
     # identify misassembly breakpoints on single genome assemblies
     if not os.path.exists(options.output+"/feature_matrix/window_fea_matrix.txt"):
-        print("Missing window feature matrix file")
+        logging.error("Missing window feature matrix file:" + options.output+"/feature_matrix/window_fea_matrix.txt")
         exit(-1)
     if not os.path.exists(options.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt"):
-        print("Missing read breakpoint file")
+        logging.error("Missing read breakpoint file: " + options.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt")
         exit(-1)             
     window_data=pd.read_csv(options.output+"/feature_matrix/window_fea_matrix.txt",sep="\t",index_col=0)
     window_data=window_data.fillna(0)
@@ -359,7 +310,7 @@ def corrected_contig(options,breakpoint_result):
     breakpoint_result=breakpoint_result.loc[(breakpoint_result['contig_length']-breakpoint_result['misassembly_breakpoint'])>options.split_length,]
     breakpoint_result=breakpoint_result.loc[breakpoint_result['read_breakpoint_count']>5,]
     breakpoint_result=breakpoint_result.loc[breakpoint_result['read_breakpoint_ratio']>0.1,]
-    corrected_contig_file=options.output+"/corrected_contigs.fa"
+    corrected_contig_file=options.output+"/aim_corrected_contigs.fa"
     corrected_file=open(corrected_contig_file,"w")
     original_file=options.assemblies 
     input=SeqIO.parse(original_file,"fasta")
@@ -375,69 +326,85 @@ def corrected_contig(options,breakpoint_result):
             corrected_file.write(">"+record.id+"\n")   
             corrected_file.write(str(record.seq)+"\n")  
     corrected_file.close()  
-    return breakpoint_result                                         
+    return breakpoint_result     
+    
+def train_model(options,data):
+    if not os.path.exists(options.label):
+        logging.error("Please provide train labels for contigs [0: no misassembly,1: misassembly]")
+        exit(-1)    
+    train_commond = ' '.join(['python3',os.path.join(base_path,"train.py"),'--data',options.output+"/feature_matrix/contig_fea_matrix.txt",'--label',options.label,"--thread",str(options.threads)])                            
+                                                                                                                                
                                                                                                                                                                                                                                                       
 def pipeline(options):
     ##### Feature extraction #########
-    print("############################################################################")
     print("Step1: Feature extraction")
-    print("############################################################################")
-    print("calculate coverage/fragment coverage for assemblies...")        
-    fragcoverage_cal(options) 
-    pool=multiprocessing.Pool(processes=options.threads)
-    pool = [multiprocessing.Process(target=coverage_cal,args=(options,)),
-        multiprocessing.Process(target=pileup,args=(options,)),
-        multiprocessing.Process(target=read_breakpoint,args=(options,)),
-        multiprocessing.Process(target=read_feature,args=(options,))]
-    for t in pool:
-        t.start()
-    for t in pool:
-        t.join()   
-    print("Calculate KAD values...") 
-    KAD_cal(options)  
-    ######### Matrix generation ############################################
-    print("Generate matrixs...") 
-    contig_data=data_generation(options)    
-    ######### Identify misassembled contigs ################################
+    extract_feature(options)   
+    check_feature(options)       
+    contig_data=cal_feature(options)    
+    # Identify misassembled contigs 
+    if options.train:
+        # Training on user provided datasets
+        print("Training models")
+        localtime = time.asctime(time.localtime(time.time()))
+        print("Time:"+localtime)
+        train_model(options,contig_data)
+        print("Finished training")               
+        return 0                                                                                
     if options.mode=='meta':
-        print("############################################################################")
+        # Applicaton of AMI to metagenomics
         print("Step2: Identify misassembled contigs")
-        print("############################################################################")
-        score=predict(options,contig_data)            
-    ######### Misassembly breakpoint identification ########################
-        if not options.no_break:
-            print("############################################################################")
-            print("Step3: Misassembly Breakpoint Identification")
-            print("############################################################################")       
-            score_cut=findcut(score)
-            filter_score=score.loc[score['MetaREA_contig_score']>score_cut,]
-            breakpoint_result = meta_breakpoint_detect(options,filter_score)
-    ######### Break misassembled contigs at misassembled breakpoints ########
-            if not options.no_correct:
-                print("############################################################################")
-                print("Step4: Correcting misassembled contigs...")
-                print("############################################################################")                                     
-                correct_result=corrected_contig(options,breakpoint_result)
-                print("A total of " + str(correct_result.shape[0]) + " misassembled contigs are corrected")
-                print("################### Finishing MetaREA ######################")    
-    elif options.mode=="single":
-        print("############################################################################")
-        print("Step 2: Misassembly Breakpoint Identification")
-        print("############################################################################")       
-        breakpoint_result =  single_breakpoint_detect(options)     
-        breakpoint_result = breakpoint_result.loc[breakpoint_result['misassembly_breakpoint']>1000,] 
-        breakpoint_result = breakpoint_result.loc[(breakpoint_result['contig_length']-breakpoint_result['misassembly_breakpoint'])>1000,]
+        localtime = time.asctime(time.localtime(time.time()))
+        print("Time:"+localtime)        
+        score=predict(options,contig_data)                           
+        # Misassembly breakpoint identification 
+        if options.no_break:
+            print("Finished")            
+            return 0
+        print("Step3: Misassembly Breakpoint Identification") 
+        score_cut=findcut(score)
+        filter_score=score.loc[score['aim_contig_score']>score_cut,]
+        breakpoint_result = meta_breakpoint_detect(options,filter_score)
+        localtime = time.asctime(time.localtime(time.time()))
+        print("Time:"+localtime)        
+        # Break misassembled contigs at misassembled breakpoints 
+        if options.no_correct:
+            print("Finished")            
+            return 0
+        print("Step4: Correcting misassembled contigs...")    
+        localtime = time.asctime(time.localtime(time.time()))                           
+        correct_result=corrected_contig(options,breakpoint_result)
+        print("A total of " + str(correct_result.shape[0]) + " misassembled contigs are corrected")
+        localtime = time.asctime(time.localtime(time.time()))
+        print("Time:"+localtime)
+        print("Finished")    
+        return 0
+    else:
+        # Applicaton of AIM to Isolates
+        print("Step 2: Misassembly Breakpoint Identification")   
+        localtime = time.asctime(time.localtime(time.time()))  
+        print("Time:"+localtime)
+        breakpoint_result =  single_breakpoint_detect(options)                     
         breakpoint_result.to_csv(options.output+"/mis_breakpoint.txt",sep="\t")
-        if not options.no_correct:
-            print("############################################################################")
-            print("Step3: Correcting misassembled contigs...")
-            print("############################################################################")  
-            breakpoint_result=breakpoint_redult.iloc[np.argsort(-breakpoint_result['outlier_score']),]
-            breakpoint_result = breakpoint_result.drop_duplicates(['contig'])                                   
-            correct_result=corrected_contig(options,breakpoint_result)
+        localtime = time.asctime(time.localtime(time.time()))  
+        print("Time:"+localtime)
+        if options.no_correct:
+            print("Finished")            
+            return 0
+        print("Step3: Correcting misassembled contigs")
+        breakpoint_result = breakpoint_result.loc[breakpoint_result['misassembly_breakpoint'] > options.split_length,] 
+        breakpoint_result = breakpoint_result.loc[(breakpoint_result['contig_length']-breakpoint_result['misassembly_breakpoint']) > options.split_length,]
+        breakpoint_result=breakpoint_redult.iloc[np.argsort(-breakpoint_result['outlier_score']),]
+        breakpoint_result = breakpoint_result.drop_duplicates(['contig'])                                   
+        correct_result=corrected_contig(options,breakpoint_result)
+        print("A total of " + str(correct_result.shape[0]) + " misassembled contigs are corrected")
+        localtime = time.asctime(time.localtime(time.time()))  
+        print("Time:"+localtime)
+        print("Finished")   
+        return 0         
         
 def bamfilter(options):
-    output_bam = output_bam=options.output+"/temp/sam/contigs.filter.sort.bam"
+    os.system("mkdir -p " + options.output+"/temp/sam")
+    output_bam=options.output+"/temp/sam/contigs.filter.sort.bam"
     command_bam = options.samtools + ' view -h -q 10 -m 50 -F 4 -b ' + options.bamfile + " | " + options.samtools + " sort " + ' > ' + output_bam        
     os.system(command_bam)                                       
     command_index=options.samtools+' index '+output_bam
@@ -448,27 +415,25 @@ def main():
     (options, args)=get_opts() 
     # removing contigs with length smaller than required minimal length
     warnings.filterwarnings("ignore")   
+    options.output = os.path.abspath(options.output)
     if not os.path.exists(options.output):
-        options.output = os.path.abspath(options.output)
-        os.system("mkdir -p "+options.output)         
-
+        os.system("mkdir -p "+ options.output)         
+    localtime = time.asctime(time.localtime(time.time()))
+    print("Time: "+ localtime)
     if not os.path.exists(options.assemblies):
-        print("Can not find "+options.assemblies)
+        logging.error("Can not find contigs: " + options.assemblies)
         exit(-1)  
     else:
         if os.path.exists(options.assemblies):
             if os.path.exists(options.output+"/temp/contig/filtered_contigs.fa"):
                 options.assemblies = options.output+"/temp/contig/filtered_contigs.fa"
             else:
-                options=filter_contig(options)                                   
-                          
+                options=filter_contig(options)                                                                 
     if options.bamfile is None:
         if os.path.exists(options.output+"/temp/sam/contigs.filter.sort.bam"):
             options.bamfile = options.output+"/temp/sam/contigs.filter.sort.bam"
         else: 
-            print("############################################################################")
-            print("Mapping paired-end reads to assemblies")
-            print("############################################################################")                   
+            print("Mapping paired-end reads to assemblies")                         
             options=mapping(options) 
     elif os.path.exists(options.bamfile): 
         if not os.path.exists(options.output+"/temp/sam/contigs.filter.sort.bam"):
@@ -476,12 +441,9 @@ def main():
         else:
             options.bamfile = options.output+"/temp/sam/contigs.filter.sort.bam"                          
     if not os.path.exists(options.bamfile):
-        print("Can not find bamfile: "+options.bamfile)
-        exit(-1)
-    if not os.path.exists(options.assemblies):
-        print("Can not find assemblies: "+options.assemblies)
-        exit(-1)                                                    
+        logging.error("Can not find bamfile: "+ options.bamfile)
+        exit(-1)                                                  
     pipeline(options)      
     
 if __name__=='__main__':
-    main()  
+    main()   
