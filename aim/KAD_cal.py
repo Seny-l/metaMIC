@@ -22,11 +22,62 @@ def parseargs():
     args=parser.parse_args()
     return args
     
-#args.bam='/home1/Laisenying/Data-analysis/phage/quality/train/temp/sam/contigs.filter.sort.bam'  
-#args.contig='/home1/Laisenying/Data-analysis/phage/quality/train/temp/contig/filtered_contigs.fa'
-#args.output='/home1/Laisenying/Data-analysis/phage/quality/train'
-#args.jellyfish='jellyfish'  
+def split_sam(args):
+    split_command=' '.join(['sh',os.path.join(base_path,"split_sam.sh"),args.contig,args.output,args.samtools])            
+    os.system(split_command) 
     
+def seq_parse(args):
+    input=SeqIO.parse(args.contig,"fasta")
+    contig_seqs={}
+    for record in input:
+        if len(record.seq) >= args.mlen:
+            contig_seqs[record.id]=str(record.seq)
+    return contig_seqs  
+    
+def kmer_parse(seq,pool):
+    seq_kmer={"position":[],"KAD":[]}
+    for i in range(len(seq)):
+        if seq[i:(i+25)] in pool:
+            seq_kmer["KAD"].append(pool[seq[i:(i+25)]])
+            seq_kmer["position"].append(i+1)         
+        if (i+25) >= len(seq):
+            break
+    return seq_kmer                        
+    
+def KAD_window_cal(seq_kmer):
+    KAD_window_dict={"start_pos":[],"mean_KAD":[],"abnormal_KAD_ratio":[],"dev_KAD":[]}
+    for i in range(300,len(seq_kmer['position']),100):
+        KAD_window_dict["start_pos"].append(i)
+        mean_KAD = np.mean(np.abs(seq_kmer['KAD'][i:i+100]))        
+        KAD_window_dict["mean_KAD"].append(mean_KAD) 
+        KAD_window_dict["abnormal_KAD_ratio"].append(np.sum(np.abs(seq_kmer['KAD'][i:i+100])>0.5)/100) 
+        KAD_window_dict["dev_KAD"].append(np.sqrt(np.var(np.abs(seq_kmer['KAD'][i:i+100]))))               
+    return KAD_window_dict                                 
+    
+def KAD_feature(args):
+    seq_data=seq_parse(args)    
+    KAD_dict = {"contig":[],'start_pos':[],'mean_KAD':[], 'abnormal_KAD_ratio':[], 'dev_KAD':[]}
+    for contig,seq in seq_data.items():
+        if len(seq) < args.mlen:
+            continue
+        if os.path.exists(args.output+"/temp/KAD/KAD_data/"+contig+".KAD"):
+            try:
+                KAD_data=pd.read_csv(args.output+"/temp/KAD/KAD_data/"+contig+".KAD",index_col=0,sep="\t")                             
+                KAD_data=KAD_data.drop_duplicates(['k-mer'])     
+            except:
+                continue
+            KAD_data.index = KAD_data['k-mer']
+            KAD_pool=KAD_data.loc[:,'KAD'].to_dict()
+            seq_kmer=kmer_parse(seq,KAD_pool)                              
+            KAD_window=KAD_window_cal(seq_kmer)            
+            KAD_dict["contig"].extend([contig]*len(KAD_window['start_pos']))
+            KAD_dict["start_pos"].extend(KAD_window['start_pos'])
+            KAD_dict["mean_KAD"].extend(KAD_window["mean_KAD"])  
+            KAD_dict["abnormal_KAD_ratio"].extend(KAD_window["abnormal_KAD_ratio"])  
+            KAD_dict["dev_KAD"].extend(KAD_window["dev_KAD"])  
+    return KAD_dict                                     
+    
+                                                                
 def KAD(args,contig,file):
     if os.path.exists(args.output+"/temp/KAD/KAD_data/"+str(contig)+".KAD"):
         return 0
@@ -64,85 +115,41 @@ def KAD(args,contig,file):
     kmer_result['KAD']=np.log2((kmer_result['read_count']+kmer_depth)/(kmer_depth*(kmer_result['assembly_count']+1)))
     kmer_result.loc[(kmer_result['read_count']==1)*(kmer_result['assembly_count']==0),'KAD']=np.nan
     kmer_result=kmer_result.loc[kmer_result['KAD']==kmer_result['KAD'],]     
-    kmer_result.to_csv(args.output+"/temp/KAD/KAD_data/"+str(contig)+".KAD",sep="\t")  
-    
-def seq_parse(args):
-    input=SeqIO.parse(args.contig,"fasta")
-    contig_seqs={}
-    for record in input:
-        if len(record.seq) >= args.mlen:
-            contig_seqs[record.id]=str(record.seq)
-    return contig_seqs  
-    
-def kmer_parse(seq,data):
-    seq_kmer={"position":[],"KAD":[]}
-    for i in range(len(seq)):
-        if seq[i:(i+25)] in data.index:
-            seq_kmer["KAD"].append(data.loc[seq[i:(i+25)],"KAD"])
-            seq_kmer["position"].append(i+1)         
-        if (i+25)>=len(seq):
-            break
-    return seq_kmer                         
-
-def KAD_window_cal(data):
-    data=pd.DataFrame(data)
-    data['start_pos']=[math.floor(x)*100+300 for x in (data['position']-300)/100] 
-    data=data.loc[data['start_pos']>=300,]    
-    data['abs_KAD']=np.abs(data['KAD'])  
-    data['statu']=(data['abs_KAD']>0.5)+0  
-    grouped=data.groupby(['start_pos'])
-    KAD_mean=pd.DataFrame(grouped['abs_KAD'].mean())
-    KAD_abnormal_count=pd.DataFrame(grouped['statu'].sum())                    
-    KAD_dev=pd.DataFrame(np.sqrt(grouped['KAD'].var()))
-    KAD_window_data=pd.concat([KAD_mean,KAD_abnormal_count/100,KAD_dev],axis=1)
-    KAD_window_data.columns=['mean_KAD','abnormal_KAD_ratio','dev_KAD']
-    KAD_window_data['start_pos']=[int(x) for x in KAD_window_data.index]
-    KAD_window_data.index=range(KAD_window_data.shape[0])   
-    return KAD_window_data              
-    
-def KAD_feature(args):
-    seq_data=seq_parse(args)    
-    KAD_dict = {"contig":[],'start_pos':[],'mean_KAD':[], 'abnormal_KAD_ratio':[], 'dev_KAD':[]}
-    for contig,seq in seq_data.items():
-        if os.path.exists(args.output+"/temp/KAD/KAD_data/"+contig+".KAD"):
-            try:
-                KAD_data=pd.read_csv(args.output+"/temp/KAD/KAD_data/"+contig+".KAD",index_col=0,sep="\t")                             
-                KAD_data=KAD_data.drop_duplicates(['k-mer'])     
-            except:
-                continue
-            KAD_data.index = KAD_data['k-mer']
-            seq_kmer=kmer_parse(seq,KAD_data)      
-            KAD_window=KAD_window_cal(seq_kmer)            
-            KAD_dict["contig"].extend([contig]*KAD_window.shape[0])
-            KAD_dict["start_pos"].extend(list(KAD_window["start_pos"]))
-            KAD_dict["mean_KAD"].extend(list(KAD_window["mean_KAD"]))  
-            KAD_dict["abnormal_KAD_ratio"].extend(list(KAD_window["abnormal_KAD_ratio"]))  
-            KAD_dict["dev_KAD"].extend(list(KAD_window["dev_KAD"]))                           
-    KAD_window_data = pd.DataFrame(KAD_dict)                    
-    KAD_window_data.to_csv(args.output+"/temp/KAD/KAD_window_data.txt",sep="\t")
-                                 
-                                               
-    
-def main():
-    args=parseargs()
-    warnings.filterwarnings("ignore")
+    kmer_result.loc[:,['k-mer','KAD']].to_csv(args.output+"/temp/KAD/KAD_data/"+str(contig)+".KAD",sep="\t")   
+ 
+def KAD_cal(args):
+    if os.path.exists(args.output+"/temp/KAD/KAD_window_data.txt"):
+        return 0  
+    split_sam(args)               
     contig_data=pd.read_csv(args.output+"/temp/split/contig_name.txt",header=None)
     split_data=pd.read_csv(args.output+"/temp/split/split_file_name.txt",header=None)
     data=pd.concat([contig_data,split_data],axis=1)
     data.columns=['contig','file']
     data.index=data['contig']
+    contig_file=data.loc[:,'file'].to_dict()
     os.system("mkdir -p "+args.output+'/temp/KAD/temp')
     os.system("mkdir -p "+args.output+'/temp/KAD/KAD_data')  
     pool=multiprocessing.Pool(processes=args.thread)
-    for contig in list(np.unique(data['contig'])):  
+    samfile=pysam.AlignmentFile(args.bam,"rb") 
+    contig_len = contig_pool(samfile)
+    for contig,file in contig_file.items():  
+        if contig_len[contig] < args.mlen:
+            continue
         try:
-            file=data.loc[contig,'file']
             t = pool.apply_async(func=KAD,args=(args,contig,file,))   
         except:
             continue            
     pool.close()
     pool.join()   
-    KAD_feature(args) 
-                        
+    KAD_dict = KAD_feature(args)
+    KAD_window_data = pd.DataFrame(KAD_dict)                    
+    KAD_window_data.to_csv(args.output+"/temp/KAD/KAD_window_data.txt",sep="\t")                                
+       
+                                                   
+def main():
+    args=parseargs()
+    warnings.filterwarnings("ignore")
+    KAD_cal(args)
+                            
 if __name__=='__main__':
-    main() 
+    main()         
