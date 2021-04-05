@@ -288,7 +288,7 @@ def single_breakpoint_detect(options):
     window_data=window_data.replace(np.inf,0)
     window_data.index=window_data['contig']+"_"+[str(int(x)) for x in window_data['start_pos']]                    
     score_pred_data = Isolation_forest(options,window_data)    
-    score_pred_data.to_csv(options.output+"/outlier_score.txt")                     
+    score_pred_data.to_csv(options.output+"/outlier_score.txt",sep="\t")                     
     read_breakpoint=pd.read_csv(options.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt",sep="\t",index_col=0)
     read_breakpoint['start_pos']=[int(x)*100+300 for x in list((read_breakpoint['position']-300)/100)]
     score_pred_data=score_pred_data.loc[score_pred_data['outlier_score']>score_pred_data['outlier_thred'],]
