@@ -32,6 +32,7 @@ def get_opts():
     parser.add_option("-t","--threads",dest="threads",type=int, default=8,help='Maximum number of threads [default: 8]')
     parser.add_option("-l","--mlen",dest="min_length",type=int, default=5000,help='Minimum contig length [default: 5000bp]') 
     parser.add_option("-s","--slen",dest="split_length",type=int, default=1000,help='Minimum length to be broken [default: 1000bp]') 
+    parser.add_option("--pileup", dest="pileup",default='pileup',help="path to pileup file")
     parser.add_option("--samtools", dest="samtools",default='samtools',help="path to samtools")
     parser.add_option("--bwa", dest="bwa",default='bwa',help="path to bwa") 
     parser.add_option("--bedtools", dest="bedtools",default='bedtools',help="path to bedtools")
@@ -75,7 +76,7 @@ def mapping(options):
     return options
     
 def extract_feature(options):
-    extract_command = ' '.join(['python',os.path.join(base_path,"extract.py"),'--bam',options.bamfile,'--contig',options.assemblies,'--output',options.output,'--mlen',str(options.min_length),'--samtools',options.samtools,'--jellyfish',options.jellyfish,"--thread",str(options.threads)]) 
+    extract_command = ' '.join(['python',os.path.join(base_path,"extract.py"),'--bam',options.bamfile,'--contig',options.assemblies,'--output',options.output,'--mlen',str(options.min_length),'--pileup',options.pileup,'--samtools',options.samtools,'--jellyfish',options.jellyfish,"--thread",str(options.threads)]) 
     os.system(extract_command)                                   
     
     
@@ -167,7 +168,7 @@ def predict(options,data):
     min_length=options.min_length
     test_data = data.loc[data['length']>min_length,data.columns!='length']
     if options.assembler=='MEGAHIT':
-        model_path=os.path.join(base_path,"dataset/MEGAHIT/model3")
+        model_path=os.path.join(base_path,"dataset/MEGAHIT/model6")
     elif options.assembler=='IDBA_UD':
         model_path=os.path.join(base_path,"model/IDBA_UD") 
     elif options.assembler=='Train':
@@ -248,7 +249,7 @@ def meta_breakpoint_detect(options,filter_score):
     window_data=window_data.replace(np.inf,0)
     window_data.index=window_data['contig']+"_"+[str(int(x)) for x in window_data['start_pos']]       
     score_pred_data = Isolation_forest(options,window_data)     
-    score_pred_data.to_csv(options.output+"/outlier_score.txt")            
+    score_pred_data.to_csv(options.output+"/outlier_score.txt",sep="\t")            
     contig_to_pos=contig_pos(score_pred_data) 
     outlier_data=pd.DataFrame(columns=['contig','start_pos','outlier_score','outlier_thred','read_breakpoint_ratio'])
     for contig in np.unique(score_pred_data['contig']):
@@ -402,14 +403,10 @@ def pipeline(options):
         print("Finished")   
         return 0         
         
-def bamfilter(options):
-    os.system("mkdir -p " + options.output+"/temp/sam")
-    output_bam=options.output+"/temp/sam/contigs.filter.sort.bam"
-    command_bam = options.samtools + ' view -h -q 10 -m 50 -F 4 -b ' + options.bamfile + " | " + options.samtools + " sort " + ' > ' + output_bam        
-    os.system(command_bam)                                       
-    command_index=options.samtools+' index '+output_bam
-    os.system(command_index)  
-    options.bamfile = output_bam                  
+def bamindex(options):                                          
+    command_index=options.samtools+' index '+ options.bamfile
+    os.system(command_index)     
+    return options               
                                              
 def main():
     (options, args)=get_opts() 
@@ -436,14 +433,11 @@ def main():
             print("Mapping paired-end reads to assemblies")                         
             options=mapping(options) 
     elif os.path.exists(options.bamfile): 
-        if not os.path.exists(options.output+"/temp/sam/contigs.filter.sort.bam"):
-            options=bamfilter(options)
-        else:
-            options.bamfile = options.output+"/temp/sam/contigs.filter.sort.bam"                          
+        options=bamindex(options)                             
     if not os.path.exists(options.bamfile):
         logging.error("Can not find bamfile: "+ options.bamfile)
         exit(-1)                                                  
     pipeline(options)      
     
 if __name__=='__main__':
-    main()   
+    main()     
