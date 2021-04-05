@@ -1,6 +1,7 @@
 contig=$1
-output=$2
-Samtools=$3
+bamfile=$2
+output=$3
+Samtools=$4
 
 mkdir -p ${output}/temp/split
 mkdir -p ${output}/temp/split/contigs
@@ -30,7 +31,7 @@ for file in `cat ${output}/temp/split/contig_name.txt`
 do
 if [ ! -s "${output}/temp/split/reads/${file}.read.fa" ];
 then
-${Samtools} view -t 4  ${output}/temp/sam/contigs.filter.sort.bam ${file} > ${output}/temp/split/sams/${file}.sam
+${Samtools} view -t 4  ${bamfile} ${file} > ${output}/temp/split/sams/${file}.sam
 cat ${output}/temp/split/sams/${file}.sam | grep "=" | awk '{print ">"$1"\n"$10}' > ${output}/temp/split/reads/${file}.read.fa
 fi
-done    
+done      
