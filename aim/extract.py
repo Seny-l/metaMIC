@@ -50,7 +50,7 @@ def FragMAD(freq):
     return median_size,mad_size 
     
 def split_sam(args):
-    split_command=' '.join(['sh',os.path.join(base_path,"split_sam.sh"),args.contig,args.output,args.samtools])            
+    split_command=' '.join(['sh',os.path.join(base_path,"split_sam.sh"),args.contig,args.bam,args.output,args.samtools])            
     os.system(split_command) 
     
 def seq_parse(args):
@@ -464,8 +464,7 @@ def main():
         os.system("mkdir -p "+ args.output+"/temp/read_breakpoint")                                                        
     samfile=pysam.AlignmentFile(args.bam,"rb") 
     size_freq = fragment_distribution(samfile) 
-    mu,dev = FragMAD(size_freq)          
-    fragment_cal(args,mu,dev)     
+    mu,dev = FragMAD(size_freq)           
     pool=[multiprocessing.Process(target=read_cal, args=(args,mu,dev,)),
     multiprocessing.Process(target=fragment_cal,args=(args,mu,dev,)),
     multiprocessing.Process(target=pileupfile_parse,args=(args,)),
