@@ -394,7 +394,7 @@ def pipeline(options):
         print("Step3: Correcting misassembled contigs")
         breakpoint_result = breakpoint_result.loc[breakpoint_result['misassembly_breakpoint'] > options.split_length,] 
         breakpoint_result = breakpoint_result.loc[(breakpoint_result['contig_length']-breakpoint_result['misassembly_breakpoint']) > options.split_length,]
-        breakpoint_result=breakpoint_redult.iloc[np.argsort(-breakpoint_result['outlier_score']),]
+        breakpoint_result=breakpoint_result.iloc[np.argsort(-breakpoint_result['outlier_score']),]
         breakpoint_result = breakpoint_result.drop_duplicates(['contig'])                                   
         correct_result=corrected_contig(options,breakpoint_result)
         print("A total of " + str(correct_result.shape[0]) + " misassembled contigs are corrected")
