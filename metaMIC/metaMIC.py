@@ -182,23 +182,23 @@ def feature_exist(options):
     return status                     
     
 def check_feature(options):
-    if not os.path.getsize(options.output+"/temp/read_feature/read_feature.txt"):
+    if not os.path.exists(options.output+"/temp/read_feature/read_feature.txt"):
         f=options.output+"/temp/read_feature/read_feature.txt"
         sys.stderr.write(f"Error: Expected file '{f}' does not exist\n")   
         sys.exit(1)                        
-    if not os.path.getsize(options.output+"/temp/coverage/fragment_coverage.txt"):
+    if not os.path.exists(options.output+"/temp/coverage/fragment_coverage.txt"):
         f=options.output+"/temp/coverage/fragment_coverage.txt"
         sys.stderr.write(f"Error: Expected file '{f}' does not exist\n")   
         sys.exit(1)
-    if not os.path.getsize(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"): 
+    if not os.path.exists(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"): 
         f=options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"
         sys.stderr.write(f"Error: Expected file '{f}' does not exist\n")  
         sys.exit(1)
-    if not os.path.getsize(options.output+"/temp/pileup/pileup_feature.txt"): 
+    if not os.path.exists(options.output+"/temp/pileup/pileup_feature.txt"): 
         f=options.output+"/temp/pileup/pileup_feature.txt"
         sys.stderr.write(f"Error: Expected file '{f}' does not exist\n")
         sys.exit(1)       
-    if not os.path.getsize(options.output+"/temp/KAD/KAD_window_data.txt"):  
+    if not os.path.exists(options.output+"/temp/KAD/KAD_window_data.txt"):  
         f = options.output+"/temp/KAD/KAD_window_data.txt"    
         sys.stderr.write(f"Error: Expected file '{f}' does not exist\n")                                    
         sys.exit(1)      
