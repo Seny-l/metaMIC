@@ -91,4 +91,59 @@ samtools mpileup -C 50 -A -f $contig_file $bam_file |  awk '$3 != "N"' > $pileup
 metaMIC/metaMIC.py --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m meta 
 ```
 
+For more details about the usage of metaMIC, [read the docs](http:)
 
+## Output
+The output folder will contain
+1. Misassembly score for each contig: **metaMIC_contig_score.txt** 【for only metagenomics】
+2. predicted misassembly breakpoints for misassembled contigs: **misassembly_breakpoint.txt**
+3. Anomaly scores for each position in contigs: **anomaly_score.txt**
+4. Fasta file of corrected contigs: **metaMIC_corrected_contigs.fa**
+5. Some intermediate files
+
+For more details about the output, [read the docs](http:)
+
+## Complete option list
+metaMIC:
+
+```
+Usage: metaMIC.py [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -1 READ1, --r1=READ1  paired-end #1 fasta/q files
+  -2 READ2, --r2=READ2  paired-end #2 fasta/q files
+  -p READ, --r=READ     smart pairing (ignoring #2 fasta/q)
+  -c ASSEMBLIES, --contig=ASSEMBLIES
+                        fasta file of assembled contigs
+  --bam=BAMFILE         index bam file for alignment
+  -a ASSEMBLER, --assembler=ASSEMBLER
+                        The assembler-specific model or user-trained model
+                        used for assembled fasta file [MEGAHIT/IDBA_UD/[new
+                        training model specified by users]]
+  -o OUTPUT, --output=OUTPUT
+                        output directory for AIM results
+  -m MODE, --mode=MODE  Applied to single genomic/metagenomic assemblies
+                        [meta/single]
+  -t THREADS, --threads=THREADS
+                        Maximum number of threads [default: 8]
+  -l MIN_LENGTH, --mlen=MIN_LENGTH
+                        Minimum contig length [default: 5000bp]
+  -s SPLIT_LENGTH, --slen=SPLIT_LENGTH
+                        Minimum length of splitted fragments [default: 1000bp]
+  --pileup=PILEUP       path to pileup file [samtools mpileup]
+  --samtools=SAMTOOLS   path to samtools
+  --bwa=BWA             path to bwa
+  --jellyfish=JELLYFISH
+                        path to jellyfish
+  --train               Training on user-specific datasets
+  --label=LABEL         Misassembly label of contigs for training assemblies
+  --no-breakpoints      Do not locate possible breakpoints
+  --no-correct          Do not break misassembled contigs at breakpoints
+  --nb=BREAK_COUNT      Minimum number of read breakpoint counts for
+                        correcting misassemblies in metagenomics
+  --rb=BREAK_RATIO      Minimum read breakpoint ratio for correcting
+                        misassemblies in metagenomics
+  --at=ANOMALY_THRED    Minimum anomaly score for correcting misassemblies in
+                        metagenomics
+```
