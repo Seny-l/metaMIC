@@ -28,7 +28,7 @@ pip install pysam pandas numpy
 2. download and install samtools
 
 ```
-conda install samtools
+conda install -c bioconda samtools
 ```
 or
 
@@ -42,7 +42,10 @@ make install
 export PATH=`pwd`:$PATH
 ```
 3. download and install bwa
-
+```
+conda install -c bioconda bwa
+```
+or
 ```
 wget https://sourceforge.net/projects/bio-bwa/files/latest/download/bwa-0.7.17.tar.bz2
 tar -jxvf bwa-0.7.17.tar.bz2
@@ -51,8 +54,10 @@ make
 export PATH=`pwd`:$PATH
 ```
 4. download and install jellyfish
-
-
+```
+conda install -c bioconda jellyfish
+```
+or
 ```
 wget http://www.cbcb.umd.edu/software/jellyfish/jellyfish-1.1.10.tar.gz
 tar zxvf jellyfish-1.1.10.tar.gz
