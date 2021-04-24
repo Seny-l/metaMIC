@@ -65,12 +65,11 @@ export PATH=`pwd`/bin:$PATH
 ```
 git clone https://github.com/Seny-l/metaMIC.git
 ```
-download training models
+- download [training models](https://zenodo.org/record/4717667#.YIQvu5MzZTY)
 
 ```
-de metaMIC
-wget xx
-
+cd metaMIC/model
+sh install_model.sh
 ```
 
 ## Quick Start
@@ -95,7 +94,7 @@ For more details about the usage of metaMIC, [read the docs](http:)
 
 ## Output
 The output folder will contain
-1. Misassembly score for each contig: **metaMIC_contig_score.txt** 【for only metagenomics】
+1. Misassembly score for each contig: **metaMIC_contig_score.txt** (for only metagenomics)
 2. predicted misassembly breakpoints for misassembled contigs: **misassembly_breakpoint.txt**
 3. Anomaly scores for each position in contigs: **anomaly_score.txt**
 4. Fasta file of corrected contigs: **metaMIC_corrected_contigs.fa**
