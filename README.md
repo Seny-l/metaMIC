@@ -85,10 +85,18 @@ bwa mem -a -t 8 $contig_file $read1 $read2 | samtools view -h -q 10 -m 50 -F 4 -
 samtools mpileup -C 50 -A -f $contig_file $bam_file |  awk '$3 != "N"' > $pileup_file
 ```
 - run metaMIC
+- 
+For metagenomics
 
 ```
 metaMIC/metaMIC.py --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m meta 
 ```
+For isolate genomes
+
+```
+metaMIC/metaMIC.py --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m single 
+```
+
 
 For more details about the usage of metaMIC, [read the docs](http:)
 
