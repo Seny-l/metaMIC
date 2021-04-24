@@ -5,7 +5,7 @@ metaMIC is a fully automated tool for identifying and correcting misassemblies o
 ## Requirements and Installation
 Make sure you have the dependencies below installed and accessible in your $PATH.
 
-### Install dependencies
+### Prepare dependencies
 
 - [python 3.6-3.9](https://www.python.org/downloads/)
 - [pandas](https://pandas.pydata.org/)
@@ -25,7 +25,7 @@ or
 pip install pysam pandas numpy
 ```
 
-2. install samtools
+2. download and install samtools
 
 ```
 wget https://github.com/samtools/samtools/releases/download/1.9/samtools-1.9.tar.bz2
@@ -36,7 +36,7 @@ make
 make install
 export PATH=`pwd`:$PATH
 ```
-3. install bwa
+3. download and install bwa
 
 ```
 wget https://sourceforge.net/projects/bio-bwa/files/latest/download/bwa-0.7.17.tar.bz2
@@ -45,7 +45,7 @@ cd bwa-0.7.17
 make
 export PATH=`pwd`:$PATH
 ```
-4. install jellyfish
+4. download and install jellyfish
 
 
 ```
@@ -59,4 +59,36 @@ export PATH=`pwd`/bin:$PATH
 ```
 
 ### Installation
+
+##### Install metaMIC via git
+
+```
+git clone https://github.com/Seny-l/metaMIC.git
+```
+download training models
+
+```
+de metaMIC
+wget xx
+
+```
+
+## Quick Start
+- First map paired-end reads to assembled contigs
+
+```
+bwa index $contig_file
+bwa mem -a -t 8 $contig_file $read1 $read2 | samtools view -h -q 10 -m 50 -F 4 -b | samtools sort > $bam_file
+```
+- generate pileup file
+
+```
+samtools mpileup -C 50 -A -f $contig_file $bam_file |  awk '$3 != "N"' > $pileup_file
+```
+- run metaMIC
+
+```
+metaMIC/metaMIC.py --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m meta 
+```
+
 
