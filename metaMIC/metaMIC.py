@@ -169,15 +169,15 @@ def cal_feature(options):
         
 def feature_exist(options):
     status=1
-    if not os.path.getsize(options.output+"/temp/read_feature/read_feature.txt"):
+    if not os.path.exists(options.output+"/temp/read_feature/read_feature.txt"):
         status=0
-    if not os.path.getsize(options.output+"/temp/coverage/fragment_coverage.txt"):
+    if not os.path.exists(options.output+"/temp/coverage/fragment_coverage.txt"):
         status=0
-    if not os.path.getsize(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"): 
+    if not os.path.exists(options.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"): 
         status=0        
-    if not os.path.getsize(options.output+"/temp/pileup/pileup_feature.txt"): 
+    if not os.path.exists(options.output+"/temp/pileup/pileup_feature.txt"): 
         status=0       
-    if not os.path.getsize(options.output+"/temp/KAD/KAD_window_data.txt"):  
+    if not os.path.exists(options.output+"/temp/KAD/KAD_window_data.txt"):  
         status=0 
     return status                     
     
