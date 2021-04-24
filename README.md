@@ -17,7 +17,7 @@ Make sure you have the dependencies below installed and accessible in your $PATH
 
 1. install python modules: pandas, numpy, pysam
 ```
-conda install -c bioconda pandas numpy pysam 
+conda install -c bioconda pandas numpy pysam  
 ```
 or
 
@@ -25,10 +25,9 @@ or
 pip install pysam pandas numpy
 ```
 
-2. download and install samtools
-
+2. download and install samtools, bwa, jellyfish
 ```
-conda install -c bioconda samtools
+conda install -c bioconda samtools bwa jellyfish  
 ```
 or
 
@@ -41,11 +40,7 @@ make
 make install
 export PATH=`pwd`:$PATH
 ```
-3. download and install bwa
-```
-conda install -c bioconda bwa
-```
-or
+
 ```
 wget https://sourceforge.net/projects/bio-bwa/files/latest/download/bwa-0.7.17.tar.bz2
 tar -jxvf bwa-0.7.17.tar.bz2
@@ -53,11 +48,7 @@ cd bwa-0.7.17
 make
 export PATH=`pwd`:$PATH
 ```
-4. download and install jellyfish
-```
-conda install -c bioconda jellyfish
-```
-or
+
 ```
 wget http://www.cbcb.umd.edu/software/jellyfish/jellyfish-1.1.10.tar.gz
 tar zxvf jellyfish-1.1.10.tar.gz
@@ -95,7 +86,7 @@ bwa mem -a -t 8 $contig_file $read1 $read2 | samtools view -h -q 10 -m 50 -F 4 -
 samtools mpileup -C 50 -A -f $contig_file $bam_file |  awk '$3 != "N"' > $pileup_file
 ```
 - run metaMIC
-- 
+
 For metagenomics
 
 ```
