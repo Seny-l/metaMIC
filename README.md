@@ -7,13 +7,13 @@ Make sure you have the dependencies below installed and accessible in your $PATH
 
 ### Install dependencies
 
-- python 3.6-3.9: https://www.python.org/downloads/
-- pandas: https://pandas.pydata.org/
-- numpy: https://numpy.org/
-- pysam: https://pypi.org/project/pysam/0.8.4/
-- bwa 0.7.17: https://sourceforge.net/projects/bio-bwa/files/
-- samtools 1.9: https://sourceforge.net/projects/samtools/files/samtools/
-- jellyfish 2.3.0: http://www.cbcb.umd.edu/software/jellyfish/
+- [python 3.6-3.9](https://www.python.org/downloads/)
+- [pandas](https://pandas.pydata.org/)
+- [numpy](https://numpy.org/)
+- [pysam](https://pypi.org/project/pysam/0.8.4/)
+- [bwa 0.7.17](https://sourceforge.net/projects/bio-bwa/files/)
+- [samtools 1.9](https://sourceforge.net/projects/samtools/files/samtools/)
+- [jellyfish](http://www.cbcb.umd.edu/software/jellyfish/)
 
 1. install python modules: pandas, numpy, pysam
 ```
@@ -57,5 +57,6 @@ make
 make install
 export PATH=`pwd`/bin:$PATH
 ```
+
 ### Installation
 
