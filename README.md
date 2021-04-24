@@ -1,2 +1,2 @@
-# AIM
-Assessing and Improving the quality of metagenomic assemblies
+# metaMIC
+metaMIC: Reference-free Misassembly Identification and Correction of metagenomic assemblies
