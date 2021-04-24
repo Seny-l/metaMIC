@@ -11,18 +11,19 @@ Make sure you have the dependencies below installed and accessible in your $PATH
 - [pandas](https://pandas.pydata.org/)
 - [numpy](https://numpy.org/)
 - [pysam](https://pypi.org/project/pysam/0.8.4/)
+- [biopython](https://pypi.org/project/biopython/)
 - [bwa 0.7.17](https://sourceforge.net/projects/bio-bwa/files/)
 - [samtools 1.9](https://sourceforge.net/projects/samtools/files/samtools/)
 - [jellyfish](http://www.cbcb.umd.edu/software/jellyfish/)
 
 1. install python modules: pandas, numpy, pysam
 ```
-conda install -c bioconda pandas numpy pysam  
+conda install -c bioconda pandas numpy pysam biopython  
 ```
 or
 
 ```
-pip install pysam pandas numpy
+pip install pysam pandas numpy biopython
 ```
 
 2. download and install samtools, bwa, jellyfish
