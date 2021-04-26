@@ -318,8 +318,8 @@ def pileupfile_parse(args):
     """    
     if os.path.exists(args.output+"/temp/pileup/pileup_feature.txt"):
         return 0
-    if not os.path.getsize(args.pileup):                                                       
-        if os.path.getsize(args.output+"/temp/pileup/contigs_pipelup.out"):
+    if not os.path.exists(args.pileup):                                                       
+        if os.path.exists(args.output+"/temp/pileup/contigs_pipelup.out"):
             args.pileup = args.output+"/temp/pileup/contigs_pipelup.out"
         else:
             if not os.path.exists(args.contig):
