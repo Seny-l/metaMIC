@@ -12,21 +12,19 @@ mkdir -p ${output}/temp/split/sams
 cd ${output}/temp/split/contigs
 awk '/^>/{s=++num}{print > "split_"s".fa"}' $contig 
 
-if [ ! -s "${output}/temp/split/contig_name.txt" ];
-then
+
 for file in `ls`
 do
     cat ${file} | grep '>' | sed 's/>//g' | awk 'BEGIN{FS=" "}{print $1}'  
 done  > ${output}/temp/split/contig_name.txt
-fi
 
-if [ ! -s "${output}/temp/split/split_file_name.txt" ];
-then
+
+
 for file in `ls`
 do
 echo ${file%.fa}
 done > ${output}/temp/split/split_file_name.txt
-fi
+
 
 
 for file in `cat ${output}/temp/split/contig_name.txt`
