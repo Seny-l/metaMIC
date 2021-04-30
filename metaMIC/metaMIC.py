@@ -294,8 +294,8 @@ def breakpoint_detect(options,data):
         result['contig_length']=list(contig_len.loc[result['contig'],'length'])
         breakpoint_result = result.loc[:,["contig","position","read_breakpoint_count","read_breakpoint_ratio","anomaly_score","anomaly_thred","contig_length"]]
         breakpoint_result.columns=["contig","misassembly_breakpoint","read_breakpoint_count","read_breakpoint_ratio","anomaly_score","anomaly_thred","contig_length"]
-        breakpoint_result=breakpoint_result.loc[breakpoint_result['misassembly_breakpoint']>1000,]
-        breakpoint_result=breakpoint_result.loc[(breakpoint_result['contig_length']-breakpoint_result['misassembly_breakpoint'])>1000,]
+        breakpoint_result=breakpoint_result.loc[breakpoint_result['misassembly_breakpoint']>options.split_length,]
+        breakpoint_result=breakpoint_result.loc[(breakpoint_result['contig_length']-breakpoint_result['misassembly_breakpoint'])>options.split_length,]
         breakpoint_result.to_csv(options.output+"/misassembly_breakpoint.txt",sep="\t")              
     else:
         if not os.path.exists(options.output+"/metaMIC_contig_score.txt"):
