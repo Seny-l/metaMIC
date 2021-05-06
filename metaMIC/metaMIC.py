@@ -21,32 +21,61 @@ base_path="/".join(sys.argv[0].split("/")[:-1])
 contig_features=['coverage_width', 'deviation_width','normalized_deviation', 'window_cov_dev', 'fragment_width', 'fragment_deviation_width','normalized_fragment_deviation', 'window_frag_cov_dev', 'proper_read_ratio', 'clipped_read_ratio', 'supplementary_read_ratio', 'inversion_read_ratio', 'discordant_loc_ratio', 'discordant_size_ratio', 'read_breakpoint_ratio', 'proper_read_width', 'clipped_read_width', 'supplementary_read_width', 'inversion_read_width', 'discordant_loc_width', 'discordant_size_width','read_breakpoint_max', 'disagree_width', 'correct_portion', 'ambiguous_portion', 'insert_portion', 'deletion_portion', 'disagree_portion', 'mean_KAD', 'abnormal_KAD_ratio', 'dev_KAD', 'KAD_width', 'coverage_diff','length'] 
 window_features=['correct_portion', 'ambiguous_portion','disagree_portion', 'deletion_portion', 'insert_portion', 'mean_KAD','abnormal_KAD_ratio', 'dev_KAD', 'normalized_fragment_coverage','normalized_fragment_deviation', 'normalized_coverage','normalized_deviation', 'mean_coverage', 'coverage_diff','read_breakpoint_ratio', 'proper_read_ratio', 'inversion_read_ratio','clipped_read_ratio', 'supplementary_read_ratio','discordant_loc_ratio', 'discordant_size_ratio']
 
-def get_opts():
-    parser=OptionParser()
-    parser.add_option("-1","--r1",dest="read1",help="paired-end #1 fasta/q files") 
-    parser.add_option("-2","--r2",dest="read2",help="paired-end #2 fasta/q files") 
-    parser.add_option("-p","--r",dest="read",help="smart pairing (ignoring #2 fasta/q)") 
-    parser.add_option("-c","--contig",dest="assemblies",help="fasta file of assembled contigs")
-    parser.add_option("--bam",dest="bamfile",help="index bam file for alignment") 
-    parser.add_option("-a","--assembler",dest="assembler",default="MEGAHIT",help="The assembler-specific model or user-trained model used for assembled fasta file [MEGAHIT/IDBA_UD/[new training model specified by users]]") 
-    parser.add_option("-o","--output",dest="output",help='output directory for AIM results')
-    parser.add_option("-m","--mode", dest="mode",default='meta',help="Applied to single genomic/metagenomic assemblies [meta/single]")
-    parser.add_option("-t","--threads",dest="threads",type=int, default=8,help='Maximum number of threads [default: 8]')
-    parser.add_option("-l","--mlen",dest="min_length",type=int, default=5000,help='Minimum contig length [default: 5000bp]') 
-    parser.add_option("-s","--slen",dest="split_length",type=int, default=1000,help='Minimum length of splitted fragments [default: 1000bp]') 
-    parser.add_option("--pileup", dest="pileup",default='pileup',help="path to pileup file [samtools mpileup]")
-    parser.add_option("--samtools", dest="samtools",default='samtools',help="path to samtools")
-    parser.add_option("--bwa", dest="bwa",default='bwa',help="path to bwa") 
-    parser.add_option("--jellyfish",dest="jellyfish",default="jellyfish",help="path to jellyfish")  
-    parser.add_option("--train",dest="train",action="store_true",help='Training on user-specific datasets')  
-    parser.add_option("--label",dest="label",help='Misassembly label of contigs for training assemblies') 
-    parser.add_option("--no-breakpoints",dest="no_break",action="store_true",help='Do not locate possible breakpoints')    
-    parser.add_option("--no-correct",dest="no_correct",action="store_true",help='Do not break misassembled contigs at breakpoints')
-    parser.add_option("--nb",dest="break_count",type=int, default=5,help='Threshold of read breakpoint counts for correcting misassemblies in metagenomics')
-    parser.add_option("--rb",dest="break_ratio",type=float, default=0.1,help='Threshold of read breakpoint ratio for correcting misassemblies in metagenomics')
-    parser.add_option("--at",dest="anomaly_thred",type=float, default=0.9,help='Threshold of anomaly score for correcting misassemblies in metagenomics')
-    (options, args) = parser.parse_args()
-    return (options, args)  
+def get_opts(args):
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                     description=' Reference-free Misassembly Identification and Correction of metagenomic assemblies')
+
+    subparsers = parser.add_subparsers(title='metaMIC subcommands',
+                                       dest='cmd',
+                                       metavar='')
+
+    extract_feature = subparsers.add_parser('extract_feature',
+                                            help='Extract features from inputs.')
+
+    extract_feature.add_argument("-t","--threads",dest="threads",type=int, default=8,help='Maximum number of threads [default: 8]')
+    extract_feature.add_argument("--bam",dest="bamfile",help="index bam file for alignment")
+    extract_feature.add_argument("-c","--contig",dest="assemblies",help="fasta file of assembled contigs")
+    extract_feature.add_argument("-o","--output",dest="output",help='output directory for AIM results')
+    extract_feature.add_argument("-l","--mlen",dest="min_length",type=int, default=5000,help='Minimum contig length [default: 5000bp]')
+    extract_feature.add_argument("--pileup", dest="pileup",default='pileup',help="path to pileup file [samtools mpileup]")
+    extract_feature.add_argument("--samtools", dest="samtools",default='samtools',help="path to samtools")
+    extract_feature.add_argument("--jellyfish",dest="jellyfish",default="jellyfish",help="path to jellyfish")
+
+    predict = subparsers.add_parser('predict',
+                                            help='Predict.')
+    predict.add_argument("-m","--mode", dest="mode",default='meta',help="Applied to single genomic/metagenomic assemblies [meta/single]")
+    predict.add_argument("-o","--output",dest="output",help='output directory for AIM results')
+    predict.add_argument("-l","--mlen",dest="min_length",type=int, default=5000,help='Minimum contig length [default: 5000bp]')
+    predict.add_argument("-a","--assembler",dest="assembler",default="MEGAHIT",help="The assembler-specific model or user-trained model used for assembled fasta file [MEGAHIT/IDBA_UD/[new training model specified by users]]")
+
+    train = subparsers.add_parser('train',
+                                            help='Train model.')
+    train.add_argument("--label",dest="label",help='Misassembly label of contigs for training assemblies')
+    train.add_argument("-a","--assembler",dest="assembler",default="MEGAHIT",help="The assembler-specific model or user-trained model used for assembled fasta file [MEGAHIT/IDBA_UD/[new training model specified by users]]")
+    train.add_argument("-t","--threads",dest="threads",type=int, default=8,help='Maximum number of threads [default: 8]')
+    train.add_argument("--train",dest="train",action="store_true",help='Training on user-specific datasets')
+    train.add_argument("-o","--output",dest="output",help='output directory for AIM results')
+
+    breakpoint_detect = subparsers.add_parser('breakpoint_detect',
+                                            help='breakpoint_detect.')
+    breakpoint_detect.add_argument("-s","--slen",dest="split_length",type=int, default=1000,help='Minimum length of splitted fragments [default: 1000bp]')
+    breakpoint_detect.add_argument("-o","--output",dest="output",help='output directory for AIM results')
+    breakpoint_detect.add_argument("-m","--mode", dest="mode",default='meta',help="Applied to single genomic/metagenomic assemblies [meta/single]")
+
+    correct = subparsers.add_parser('correct',
+                                            help='correct.')
+    correct.add_argument("-o","--output",dest="output",help='output directory for AIM results')
+    correct.add_argument("-s","--slen",dest="split_length",type=int, default=1000,help='Minimum length of splitted fragments [default: 1000bp]')
+    correct.add_argument("-c","--contig",dest="assemblies",help="fasta file of assembled contigs")
+    correct.add_argument("--nb",dest="break_count",type=int, default=5,help='Threshold of read breakpoint counts for correcting misassemblies in metagenomics')
+    correct.add_argument("--rb",dest="break_ratio",type=float, default=0.1,help='Threshold of read breakpoint ratio for correcting misassemblies in metagenomics')
+    correct.add_argument("--at",dest="anomaly_thred",type=float, default=0.9,help='Threshold of anomaly score for correcting misassemblies in metagenomics')
+
+    if not args:
+        parser.print_help(sys.stderr)
+        sys.exit()
+
+    return parser.parse_args(args)
        
 
 
@@ -410,7 +439,9 @@ def validate_options(options):
                                                                    
                                                                          
 def main():
-    (options, args)=get_opts() 
+    args = sys.argv[1:]
+    options = get_opts(args)
+
     warnings.filterwarnings("ignore") 
     logger = logging.getLogger('metaMIC')
     logger.setLevel(logging.INFO)
@@ -423,37 +454,38 @@ def main():
     options = validate_options(options)    
     logger.info('Processed: ' + options.bamfile)     
           
-    ########### Extract four types of features from bamfile ########### 
-    logger.info('Step: Feature extraction')        
-    (window_data,contig_data) = extract_feature(options)    
+    ########### Extract four types of features from bamfile ###########
+    if options.cmd == 'extract_feature':
+        logger.info('Step: Feature extraction')
+        (window_data,contig_data) = extract_feature(options)
                
     ########### Training models specified by users or not ###########       
-    if options.train:
+    if options.cmd == 'train':
         logger.info('Step: Training new models')            
         train_model(options,contig_data)
         logger.info("Finished")  
         return 0                                       
                
     ########### Identify misassembled contigs [for only metagenomics] ###########                                 
-    if options.mode=='meta':
-        logger.info('Step: Identify misassembled metagenomic contigs')            
-        score=predict(options,contig_data) 
-        if options.no_break:
-            logger.info("Finished")  
-            return 0                              
+    if options.cmd=='predict':
+        if options.mode == 'meta':
+            logger.info('Step: Identify misassembled metagenomic contigs')
+            score=predict(options,contig_data)
+            if options.no_break:
+                logger.info("Finished")
+                return 0
                
     ########### Localize misassembly breakpoints ###########
-    logger.info('Step: Localize misassembly breakpoints')  
-    breakpoint_result = breakpoint_detect(options,window_data)   
-    if options.no_correct:
-        logger.info("Finished")  
-        return 0                    
+    if options.cmd == 'breakpoint_detect':
+        logger.info('Step: Localize misassembly breakpoints')
+        breakpoint_result = breakpoint_detect(options,window_data)
         
     ########### Correct misassemblies ###########
-    logger.info('Step: Correct misassemblies')                                                                                                                                            
-    correct(options,breakpoint_result)       
-    logger.info("Finished")  
-    return 0                                                             
+    if options.cmd == 'correct':
+        logger.info('Step: Correct misassemblies')
+        correct(options,breakpoint_result)
+        logger.info("Finished")
+        return 0                                                             
       
     
 if __name__=='__main__':
