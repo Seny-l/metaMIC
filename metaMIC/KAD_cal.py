@@ -12,7 +12,6 @@ import warnings
 from Bio import SeqIO
 
 base_path = os.path.split(__file__)[0]
-#base_path = '/home1/pansj/metaMIC/metaMIC/'
 
 def parseargs():
     parser=argparse.ArgumentParser(description="Calculate KAD values")
