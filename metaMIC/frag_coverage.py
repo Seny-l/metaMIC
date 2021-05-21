@@ -89,8 +89,8 @@ def discordant_loc_count(args,discordant_pool):
         discs["start_pos"].extend(positions)
         discs["discordant_loc_count"].extend(list(data[1]))
     data=pd.DataFrame(discs)
-    os.system("mkdir -p "+ args.output+"/temp/read_feature/")
-    data.to_csv(args.output+"/temp/read_feature/discordant_loc_feature.txt",sep='\t')
+    os.makedirs(os.path.join(args.output, "temp/read_feature/"), exist_ok=True)
+    data.to_csv(os.path.join(args.output, "temp/read_feature/discordant_loc_feature.txt"), sep='\t')
     
 def discordant_size_count(args,contig_frag,mu,dev):
     """
@@ -113,8 +113,8 @@ def discordant_size_count(args,contig_frag,mu,dev):
         discs["start_pos"].extend(list(counts.index))
         discs["discordant_size_count"].extend(list(counts))
     data = pd.DataFrame(discs)
-    os.system("mkdir -p "+ args.output+"/temp/read_feature/")
-    data.to_csv(args.output+"/temp/read_feature/discordant_size_feature.txt",sep='\t')
+    os.makedirs(os.path.join(args.output, "temp/read_feature/"), exist_ok=True)
+    data.to_csv(os.path.join(args.output, "temp/read_feature/discordant_size_feature.txt"),sep='\t')
     
 def fragment_coverage_per_contig(args,length,reads,mu,dev):
     """
@@ -175,9 +175,9 @@ def fragment_coverage(args,samfile,mu,dev):
         norm_fragdev.extend(fragcov['deviation'])
         position.extend(fragcov['pos'])
     data=pd.DataFrame({"contig":contigs,"start_pos":position,
-    "normalized_fragment_coverage":norm_fragcov,"normalized_fragment_deviation":norm_fragdev})    
-    os.system("mkdir -p " + args.output+"/temp/coverage/")   
-    data.to_csv(args.output+"/temp/coverage/fragment_coverage.txt",sep="\t")
+    "normalized_fragment_coverage":norm_fragcov,"normalized_fragment_deviation":norm_fragdev})
+    os.makedirs(os.path.join(args.output, "temp/coverage/"))
+    data.to_csv(os.path.join(args.output, "temp/coverage/fragment_coverage.txt"),sep="\t")
                
 def contig_index(data):
     """
@@ -202,7 +202,7 @@ def main():
     args=parseargs()
     warnings.filterwarnings("ignore")    
     samfile=pysam.AlignmentFile(args.bam,"rb")
-    os.system("mkdir -p "+args.output+"/temp/coverage")
+    os.makedirs(os.path.join(args.output, "temp/coverage"), exist_ok=True)
     size_freq,contig_pool,discordant_pool=fragment_distribution(args,samfile)
     mu,dev = FragMAD(size_freq)
     pool=[multiprocessing.Process(target=discordant_size_count, args=(args,contig_pool,mu,dev,)),

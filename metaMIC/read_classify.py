@@ -45,7 +45,7 @@ def window_read_cal(samfile,ref,lens):
     return read_count                         
                  
 def read_cal(args,samfile):
-    if os.path.exists(args.output+"/temp/read_feature/read_feature.txt"):
+    if os.path.exists(os.path.join(args.output, "temp/read_feature/read_feature.txt")):
         return 0            
     references=samfile.references
     lengths=samfile.lengths
@@ -67,13 +67,13 @@ def read_cal(args,samfile):
         read_store["supplementary_read_count"].extend(read_count["supplementary_count"])   
         read_store["length"].extend([lens]*len(read_count["start_pos"]))
     data=pd.DataFrame(read_store)  
-    data.to_csv(args.output+"/temp/read_feature/read_feature.txt",sep="\t")                                                                     
+    data.to_csv(os.path.join(args.output, "temp/read_feature/read_feature.txt"),sep="\t")
 
 def main():
     args=parseargs()
     warnings.filterwarnings("ignore")
-    if not os.path.isdir(args.output+"/temp/read_feature"):
-        os.system("mkdir -p "+ args.output+"/temp/read_feature")  
+    if not os.path.isdir(os.path.join(args.output, "temp/read_feature")):
+        os.makedirs(os.path.join(args.output, "temp/read_feature"), exist_ok=True)
     samfile=pysam.AlignmentFile(args.bam,"rb")   
     read_cal(args,samfile)          
                      

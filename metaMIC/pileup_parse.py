@@ -85,10 +85,10 @@ def pileupfile_parse(args,samfile):
         st = ''.join(re.split('[\+|\-][0-9]+[ATCGatcg]+',match_detail))
         numd = st.count('a')+st.count('A')+st.count('t')+st.count('T')+st.count('c')+st.count('C')+st.count('g')+st.count('G')
         pileup_dict['disagree'].append(numd)
-    if not os.path.exists(args.output+"/temp/pileup"):
-        os.system("mkdir -p "+ args.output+"/temp/pileup")            
+    if not os.path.exists(os.path.join(args.output, "temp/pileup")):
+        os.makedirs(os.path.join(args.output, "temp/pileup"))
     data=pd.DataFrame(window_pileup_dict)                                                       
-    data.to_csv(args.output+"/temp/pileup/pileup_feature.txt",sep="\t") 
+    data.to_csv(os.path.join(args.output, "temp/pileup/pileup_feature.txt"),sep="\t")
     return data
                                                 
 def main():

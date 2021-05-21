@@ -61,12 +61,12 @@ def window_break_cal(data):
     return read_break_ratio     
     
 def read_breakpoint_cal(args):
-    if os.path.exists(args.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt"):
+    if os.path.exists(os.path.join(args.output, "temp/read_breakpoint/read_breakpoint_per_window.txt")):
         return 0
-    if os.path.exists(args.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt"):
-        read_breakpoint_data = pd.read_csv(args.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt",sep="\t",index_col=0)
+    if os.path.exists(os.path.join(args.output, "temp/read_breakpoint/read_breakpoint_per_base.txt")):
+        read_breakpoint_data = pd.read_csv(os.path.join(args.output, "temp/read_breakpoint/read_breakpoint_per_base.txt"),sep="\t",index_col=0)
         window_read_breakpoint_data=window_break_cal(read_breakpoint_data)  
-        window_read_breakpoint_data.to_csv(args.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt",sep="\t")  
+        window_read_breakpoint_data.to_csv(os.path.join(args.output, "temp/read_breakpoint/read_breakpoint_per_window.txt"),sep="\t")
         return 0                        
     samfile=pysam.AlignmentFile(args.bam,"rb") 
     references=samfile.references
@@ -82,15 +82,15 @@ def read_breakpoint_cal(args):
             read_breakpoint_pool["contig"].extend([ref]*contig_break_data.shape[0])
             read_breakpoint_pool["position"].extend(list(contig_break_data['position'])) 
     read_breakpoint_data=pd.DataFrame(read_breakpoint_pool)    
-    read_breakpoint_data.to_csv(args.output+"/temp/read_breakpoint/read_breakpoint_per_base.txt",sep="\t")
+    read_breakpoint_data.to_csv(os.path.join(args.output, "temp/read_breakpoint/read_breakpoint_per_base.txt"),sep="\t")
     window_read_breakpoint_data=window_break_cal(read_breakpoint_data)                        
-    window_read_breakpoint_data.to_csv(args.output+"/temp/read_breakpoint/read_breakpoint_per_window.txt",sep="\t")                                                                                                                 
+    window_read_breakpoint_data.to_csv(os.path.join(args.output, "temp/read_breakpoint/read_breakpoint_per_window.txt"),sep="\t")
     
 def main():
     args=parseargs()
     warnings.filterwarnings("ignore")
-    if not os.path.isdir(args.output+"/temp/read_breakpoint"):
-        os.system("mkdir -p "+ args.output+"/temp/read_breakpoint")  
+    if not os.path.isdir(os.path.join(args.output, "temp/read_breakpoint")):
+        os.makedirs(os.path.join(args.output, "temp/read_breakpoint"))
     read_breakpoint_cal(args)  
                          
 if __name__=="__main__":

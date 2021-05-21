@@ -11,8 +11,8 @@ import collections
 import warnings
 from Bio import SeqIO
 
-base_path="/".join(sys.argv[0].split("/")[:-1])
-
+base_path = os.path.split(__file__)[0]
+#base_path = '/home1/pansj/metaMIC/metaMIC/'
 
 def parseargs():
     parser=argparse.ArgumentParser(description="Calculate KAD values")
@@ -33,6 +33,7 @@ def contig_pool(samfile):
     return contig_len        
         
 def split_sam(args):
+    print(os.path.join(base_path,"split_sam.sh"))
     split_command=' '.join(['sh',os.path.join(base_path,"split_sam.sh"),args.contig,args.bam,args.output,args.samtools])            
     os.system(split_command) 
     
@@ -70,9 +71,9 @@ def KAD_feature(args):
     for contig,seq in seq_data.items():
         if len(seq) < args.mlen:
             continue
-        if os.path.exists(args.output+"/temp/KAD/KAD_data/"+contig+".KAD"):
+        if os.path.exists(os.path.join(args.output, "temp/KAD/KAD_data/{}.KAD".format(str(contig)))):
             try:
-                KAD_data=pd.read_csv(args.output+"/temp/KAD/KAD_data/"+contig+".KAD",index_col=0,sep="\t")                             
+                KAD_data=pd.read_csv(os.path.join(args.output, "temp/KAD/KAD_data/{}.KAD".format(str(contig))),index_col=0,sep="\t")
                 KAD_data=KAD_data.drop_duplicates(['k-mer'])     
             except:
                 continue
@@ -89,29 +90,31 @@ def KAD_feature(args):
     
                                                                 
 def KAD(args,contig,file):
-    if os.path.exists(args.output+"/temp/KAD/KAD_data/"+str(contig)+".KAD"):
+    if os.path.exists(os.path.join(args.output, "temp/KAD/KAD_data/{}.KAD".format(str(contig)))):
         return 0
-    contig_file=args.output+"/temp/split/contigs/"+file+".fa"
-    read_file=args.output+"/temp/split/reads/"+"'"+str(contig)+".read.fa"+"'"
+    contig_file = os.path.join(args.output, "temp/split/contigs/{}.fa".format(file))
+    read_file = os.path.join(args.output, "temp/split/reads/"+"'"+str(contig)+".read.fa"+"'")
     # kmer count
-    outputdir=args.output+"/temp/KAD/temp"
-    contig_command1=' '.join([args.jellyfish,"count -m 25 -o",outputdir+"/"+"'"+str(contig)+".jf"+"'","-s 100M -t 8",contig_file])
-    contig_command2=' '.join([args.jellyfish,"dump -c -t -o",outputdir+"/"+"'"+str(contig)+"_count.txt"+"'",outputdir+"/"+"'"+str(contig)+".jf"+"'"])
+    outputdir = os.path.join(args.output, "temp/KAD/temp")
+    contig_command1=' '.join([args.jellyfish,"count -m 25 -o",os.path.join(outputdir, "'"+str(contig)+".jf"+"'"),"-s 100M -t 8",contig_file])
+    contig_command2=' '.join([args.jellyfish,"dump -c -t -o",os.path.join(outputdir, "'"+str(contig)+"_count.txt"+"'"), os.path.join(outputdir, "'"+str(contig)+".jf"+"'")])
     os.system(contig_command1) 
     os.system(contig_command2)         
-    read_command1=' '.join([args.jellyfish,"count -m 25 -o",outputdir+"/"+"'"+str(contig)+".read.jf"+"'","-s 100M -t 8",read_file])
-    read_command2=' '.join([args.jellyfish,"dump -c -t -o",outputdir+"/"+"'"+str(contig)+"_count.read.txt"+"'",outputdir+"/"+"'"+str(contig)+".read.jf"+"'"])
+    read_command1=' '.join([args.jellyfish,"count -m 25 -o",os.path.join(outputdir, "'"+str(contig)+".read.jf"+"'"),"-s 100M -t 8",read_file])
+    read_command2=' '.join([args.jellyfish,"dump -c -t -o", os.path.join(outputdir, "'"+str(contig)+"_count.read.txt"+"'"), os.path.join(outputdir, "'"+str(contig)+".read.jf"+"'")])
     os.system(read_command1)  
     os.system(read_command2) 
-    assembly_kmer=pd.read_csv(args.output+"/temp/KAD/temp/"+str(contig)+"_count.txt",sep="\t",header=None) 
+    assembly_kmer=pd.read_csv(os.path.join(args.output, "temp/KAD/temp/{}_count.txt".format(str(contig))),sep="\t",header=None)
     assembly_kmer.index=assembly_kmer[0]
+    print(assembly_kmer)
     try:
-        read_kmer=pd.read_csv(args.output+"/temp/KAD/temp/"+str(contig)+"_count.read.txt",sep="\t",header=None)   
+        read_kmer=pd.read_csv(os.path.join(args.output, "temp/KAD/temp/{}_count.read.txt".format(str(contig))),sep="\t",header=None)
         read_kmer.index=read_kmer[0]            
     except:
         # zero reads mapped to contig
-        return 0  
-    shared_kmer=set(assembly_kmer.loc[assembly_kmer[1]==1,0]).intersection(read_kmer.index)     
+        return 0
+
+    shared_kmer=set(assembly_kmer.loc[assembly_kmer[1]==1,0]).intersection(read_kmer.index)
     if len(shared_kmer)==0: 
         kmer_depth=pd.value_counts(read_kmer.loc[read_kmer[1]>5,1]).index[0]
     else:                
@@ -124,21 +127,22 @@ def KAD(args,contig,file):
     kmer_result=kmer_result.fillna(0)
     kmer_result['KAD']=np.log2((kmer_result['read_count']+kmer_depth)/(kmer_depth*(kmer_result['assembly_count']+1)))
     kmer_result.loc[(kmer_result['read_count']==1)*(kmer_result['assembly_count']==0),'KAD']=np.nan
-    kmer_result=kmer_result.loc[kmer_result['KAD']==kmer_result['KAD'],]     
-    kmer_result.loc[:,['k-mer','KAD']].to_csv(args.output+"/temp/KAD/KAD_data/"+str(contig)+".KAD",sep="\t")  
+    kmer_result=kmer_result.loc[kmer_result['KAD']==kmer_result['KAD'],]
+    kmer_result.loc[:,['k-mer','KAD']].to_csv(os.path.join(args.output, "temp/KAD/KAD_data/"+str(contig)+".KAD"), sep="\t")
 
 def KAD_cal(args):
-    if os.path.exists(args.output+"/temp/KAD/KAD_window_data.txt"):
-        return 0   
-    split_sam(args)              
-    contig_data=pd.read_csv(args.output+"/temp/split/contig_name.txt",header=None)
-    split_data=pd.read_csv(args.output+"/temp/split/split_file_name.txt",header=None)
+    if os.path.exists(os.path.join(args.output, "temp/KAD/KAD_window_data.txt")):
+        return 0
+    split_sam(args)
+    contig_data=pd.read_csv(os.path.join(args.output, "temp/split/contig_name.txt"), header=None)
+    split_data=pd.read_csv(os.path.join(args.output, "temp/split/split_file_name.txt"), header=None)
     data=pd.concat([contig_data,split_data],axis=1)
     data.columns=['contig','file']
     data.index=data['contig']
     contig_file=data.loc[:,'file'].to_dict()
-    os.system("mkdir -p "+args.output+'/temp/KAD/temp')
-    os.system("mkdir -p "+args.output+'/temp/KAD/KAD_data')  
+    os.makedirs(os.path.join(args.output, 'temp/KAD/temp'), exist_ok=True)
+    os.makedirs(os.path.join(args.output, 'temp/KAD/KAD_data'), exist_ok=True)
+
     pool=multiprocessing.Pool(processes=args.thread)
     samfile=pysam.AlignmentFile(args.bam,"rb") 
     contig_len = contig_pool(samfile)
@@ -153,7 +157,7 @@ def KAD_cal(args):
     pool.join()   
     KAD_dict = KAD_feature(args)
     KAD_window_data = pd.DataFrame(KAD_dict)                    
-    KAD_window_data.to_csv(args.output+"/temp/KAD/KAD_window_data.txt",sep="\t")                                
+    KAD_window_data.to_csv(os.path.join(args.output, "temp/KAD/KAD_window_data.txt"), sep="\t")
                          
                                                    
 def main():

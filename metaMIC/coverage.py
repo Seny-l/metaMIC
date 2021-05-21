@@ -42,10 +42,10 @@ def window_coverage_cal(args,coverage):
     return cov                         
            
 def depthparse(args):
-    if not os.path.exists(args.output+"/temp/coverage/contigs.depth"):
-        command=args.bedtools + ' genomecov -ibam ' + args.bam + " -d > " + args.output+"/temp/coverage/contigs.depth"
+    if not os.path.exists(os.path.join(args.output, "temp/coverage/contigs.depth")):
+        command=args.bedtools + ' genomecov -ibam ' + args.bam + " -d > " + os.path.join(args.output, "temp/coverage/contigs.depth")
         os.system(command)
-    file = open(args.output+"/temp/coverage/contigs.depth","r")
+    file = open(os.path.join(args.output, "temp/coverage/contigs.depth"),"r")
     lines = file.readlines()      
     depth_dict={"position":[],"depth":[]}
     previous_contig=0   
@@ -70,9 +70,9 @@ def depthparse(args):
         depth_dict["position"].append(int(line.strip().split()[1]))
         depth_dict["depth"].append(int(line.strip().split()[2]))   
         previous_contig=contig             
-    data=pd.DataFrame(cov_dict)   
-    os.system("mkdir -p " + args.output+"/temp/coverage/")  
-    data.to_csv(args.output+"/temp/coverage/coverage.txt",sep="\t")                                                 
+    data=pd.DataFrame(cov_dict)
+    os.makedirs(os.path.join(args.output, "temp/coverage/"))
+    data.to_csv(os.path.join(args.output, "temp/coverage/coverage.txt"),sep="\t")
     return data  
                   
 def mean_coverage(coverage):
