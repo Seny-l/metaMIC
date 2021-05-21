@@ -258,6 +258,14 @@ def get_opts(args):
 
     train = subparsers.add_parser('train',
                                   help='Train model.')
+
+    train.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        required=True,
+        help='output directory for AIM results')
+
     train.add_argument(
         "--label",
         dest="label",
@@ -278,12 +286,6 @@ def get_opts(args):
         default=8,
         help='Maximum number of CPUs [default: 8]')
 
-    train.add_argument(
-        "-f", '--feature',
-        dest="feature_matrix",
-        default = None,
-        help = 'feature matrix file calculated by extract_feature.'
-    )
 
 
     if not args:
@@ -829,7 +831,8 @@ def main():
     ########### Training models specified by users or not ###########
     if options.cmd == 'train':
         logger.info('Step: Training new models')
-        train_model(options, options.feature_matrix)
+
+        train_model(options, os.path.join(options.output, 'feature_matrix/contig_fea_matrix.txt'))
         logger.info("Finished")
         return 0
 
