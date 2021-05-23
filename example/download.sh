@@ -6,4 +6,4 @@ wget https://zenodo.org/record/4781819/files/R.sphaeroides.bam.gz
 wget https://zenodo.org/record/4781819/files/R.sphaeroides_pileup.out
 wget https://zenodo.org/record/4781819/files/velvet_ctg.fasta
 
-tar xzvf *.gz
+gunzip R.sphaeroides.bam.gz
