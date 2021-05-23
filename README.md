@@ -181,7 +181,7 @@ optional arguments:
   -c ASSEMBLIES, --contig ASSEMBLIES
                         fasta file of assembled contigs
   -o OUTPUT, --output OUTPUT
-                        output directory for AIM results
+                        output directory for metaMIC results
   --pileup PILEUP       path to pileup file [samtools mpileup]
   -m MODE, --mode MODE  Applied to single genomic/metagenomic assemblies
                         [meta/single]
@@ -198,7 +198,7 @@ usage: metaMIC predict [-h] -o OUTPUT -m MODE -c ASSEMBLIES [-a ASSEMBLER]
 optional arguments:
   -h, --help            show this help message and exit
   -o OUTPUT, --output OUTPUT
-                        output directory for AIM results
+                        output directory for metaMIC results
   -m MODE, --mode MODE  Applied to single genomic/metagenomic assemblies
                         [meta/single]
   -c ASSEMBLIES, --contig ASSEMBLIES
@@ -224,7 +224,7 @@ usage: metaMIC train [-h] -o OUTPUT [--label LABEL] [-a ASSEMBLER]
 optional arguments:
   -h, --help            show this help message and exit
   -o OUTPUT, --output OUTPUT
-                        output directory for AIM results
+                        output directory for metaMIC results
   --label LABEL         Misassembly label of contigs for training assemblies
   -a ASSEMBLER, --assembler ASSEMBLER
                         The name of the directory of the trained model.
