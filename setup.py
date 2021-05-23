@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='metaMIC',
-      description='Metagenomic binning with semi-supervised siamese neural network',
+      description='metaMIC: Reference-free Misassembly Identification and Correction of metagenomic assemblies',
       long_description_content_type = 'text/markdown',
       classifiers=[
         'Development Status :: 3 - Alpha',
@@ -17,6 +17,8 @@ setup(name='metaMIC',
       author='Senying Lai',
       license='MIT',
       packages = ['metaMIC'],
+      package_data={
+          'metaMIC': ['*.py','*.sh']},
       zip_safe=False,
       entry_points={
             'console_scripts': ['metaMIC=metaMIC.metaMIC:main'],
