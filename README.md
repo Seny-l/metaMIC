@@ -67,11 +67,15 @@ export PATH=`pwd`/bin:$PATH
 ```
 git clone https://github.com/Seny-l/metaMIC.git
 ```
-- download [training models](https://zenodo.org/record/4717667#.YIQvu5MzZTY)
+- install and download [training models](https://zenodo.org/record/4781819#.YKm_omYzZTY) 
 
 ```
-cd metaMIC/model
-sh install_model.sh
+cd metaMIC
+python setup.py install
+metaMIC -h
+
+# downloading models
+metaMIC download_model
 ```
 
 ## Quick Start
@@ -91,16 +95,45 @@ samtools mpileup -C 50 -A -f $contig_file $bam_file |  awk '$3 != "N"' > $pileup
 For metagenomics
 
 ```
-metaMIC/metaMIC.py --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m meta 
+# Step 1: extract features [output file: feature_matrix/window_fea_matrix.txt,feature_matrix/contig_fea_matrix.txt]
+metaMIC extract_feature --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m meta
+
+# Step 2: misassembly breakpoint identification and correction;
+# output directory must be same as the above $output_dir
+# [output file: metaMIC_corrected_contigs.fa, misassembly_breakpoint.txt, anomaly_score.txt]
+metaMIC predict -c $contig_file -o $output_dir -m meta
 ```
 For isolate genomes
 
 ```
-metaMIC/metaMIC.py --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m single 
+# Step 1: extract features [output file: feature_matrix/window_fea_matrix.txt]
+metaMIC extract_feature --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m single
+
+# Step 2: misassembly breakpoint identification and correction;
+# output directory must be same as the above $output_dir
+# [output file: metaMIC_corrected_contigs.fa, misassembly_breakpoint.txt, anomaly_score.txt]
+metaMIC predict -c $contig_file -o $output_dir -m single
 ```
 
 
 For more details about the usage of metaMIC, [read the docs](http:)
+
+## Example
+
+##### example data
+
+- R.sphaeroides_pileup.out
+- R.sphaeroides.bam
+- velvet_ctg.fasta
+
+```
+cd example
+sh download.sh
+metaMIC extract_feature --pileup R.sphaeroides_pileup.out --bam R.sphaeroides.bam -c velvet_ctg.fasta -m single -o test
+metaMIC predict -c velvet_ctg.fasta -o test -m single
+```
+
+
 
 ## Output
 The output folder will contain
@@ -116,43 +149,85 @@ For more details about the output, [read the docs](http:)
 metaMIC:
 
 ```
-Usage: metaMIC.py [options]
+usage: metaMIC [-h]  ...
 
-Options:
+Reference-free Misassembly Identification and Correction of metagenomic
+assemblies
+
+optional arguments:
+  -h, --help       show this help message and exit
+
+metaMIC subcommands:
+
+    extract_feature
+                   Extract features from inputs.
+    predict        Predict.
+    train          Train model.
+    
+
+usage: metaMIC extract_feature [-h] [-t THREADS] [--bam BAMFILE] [--r1 READ1]
+                               [--r2 READ2] [-p READ] -c ASSEMBLIES -o OUTPUT
+                               --pileup PILEUP -m MODE [-l MIN_LENGTH]
+                               [--samtools SAMTOOLS] [--jellyfish JELLYFISH]
+
+optional arguments:
   -h, --help            show this help message and exit
-  -1 READ1, --r1=READ1  paired-end #1 fasta/q files
-  -2 READ2, --r2=READ2  paired-end #2 fasta/q files
-  -p READ, --r=READ     smart pairing (ignoring #2 fasta/q)
-  -c ASSEMBLIES, --contig=ASSEMBLIES
+  -t THREADS, --threads THREADS
+                        Maximum number of threads [default: 8]
+  --bam BAMFILE         index bam file for alignment
+  --r1 READ1            read1
+  --r2 READ2            read2
+  -p READ, --r READ     smart pairing (ignoring #2 fasta/q)
+  -c ASSEMBLIES, --contig ASSEMBLIES
                         fasta file of assembled contigs
-  --bam=BAMFILE         index bam file for alignment
-  -a ASSEMBLER, --assembler=ASSEMBLER
+  -o OUTPUT, --output OUTPUT
+                        output directory for AIM results
+  --pileup PILEUP       path to pileup file [samtools mpileup]
+  -m MODE, --mode MODE  Applied to single genomic/metagenomic assemblies
+                        [meta/single]
+  -l MIN_LENGTH, --mlen MIN_LENGTH
+                        Minimum contig length [default: 5000bp]
+  --samtools SAMTOOLS   path to samtools
+  --jellyfish JELLYFISH
+                        path to jellyfish
+                        
+usage: metaMIC predict [-h] -o OUTPUT -m MODE -c ASSEMBLIES [-a ASSEMBLER]
+                       [-l MIN_LENGTH] [-s SPLIT_LENGTH] [--nb BREAK_COUNT]
+                       [--rb BREAK_RATIO] [--at ANOMALY_THRED]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        output directory for AIM results
+  -m MODE, --mode MODE  Applied to single genomic/metagenomic assemblies
+                        [meta/single]
+  -c ASSEMBLIES, --contig ASSEMBLIES
+                        fasta file of assembled contigs
+  -a ASSEMBLER, --assembler ASSEMBLER
                         The assembler-specific model or user-trained model
                         used for assembled fasta file [MEGAHIT/IDBA_UD/[new
                         training model specified by users]]
-  -o OUTPUT, --output=OUTPUT
-                        output directory for AIM results
-  -m MODE, --mode=MODE  Applied to single genomic/metagenomic assemblies
-                        [meta/single]
-  -t THREADS, --threads=THREADS
-                        Maximum number of threads [default: 8]
-  -l MIN_LENGTH, --mlen=MIN_LENGTH
+  -l MIN_LENGTH, --mlen MIN_LENGTH
                         Minimum contig length [default: 5000bp]
-  -s SPLIT_LENGTH, --slen=SPLIT_LENGTH
+  -s SPLIT_LENGTH, --slen SPLIT_LENGTH
                         Minimum length of splitted fragments [default: 1000bp]
-  --pileup=PILEUP       path to pileup file [samtools mpileup]
-  --samtools=SAMTOOLS   path to samtools
-  --bwa=BWA             path to bwa
-  --jellyfish=JELLYFISH
-                        path to jellyfish
-  --train               Training on user-specific datasets
-  --label=LABEL         Misassembly label of contigs for training assemblies
-  --no-breakpoints      Do not locate possible breakpoints
-  --no-correct          Do not break misassembled contigs at breakpoints
-  --nb=BREAK_COUNT      Minimum number of read breakpoint counts for
-                        correcting misassemblies in metagenomics
-  --rb=BREAK_RATIO      Minimum read breakpoint ratio for correcting
+  --nb BREAK_COUNT      Threshold of read breakpoint counts for correcting
                         misassemblies in metagenomics
-  --at=ANOMALY_THRED    Minimum anomaly score for correcting misassemblies in
-                        metagenomics
+  --rb BREAK_RATIO      Threshold of read breakpoint ratio for correcting
+                        misassemblies in metagenomics
+  --at ANOMALY_THRED    Threshold of anomaly score for correcting
+                        misassemblies in metagenomics
+                        
+usage: metaMIC train [-h] -o OUTPUT [--label LABEL] [-a ASSEMBLER]
+                     [-t THREADS]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        output directory for AIM results
+  --label LABEL         Misassembly label of contigs for training assemblies
+  -a ASSEMBLER, --assembler ASSEMBLER
+                        The name of the directory of the trained model.
+  -t THREADS, --threads THREADS
+                        Maximum number of CPUs [default: 8]                        
 ```
