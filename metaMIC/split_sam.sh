@@ -9,18 +9,16 @@ mkdir -p ${output}/temp/split
 mkdir -p ${output}/temp/split/contigs
 mkdir -p ${output}/temp/split/reads
 mkdir -p ${output}/temp/split/sams
-cd ${output}/temp/split/contigs
-awk '/^>/{s=++num}{print > "split_"s".fa"}' $contig 
+awk '/^>/{s=++num}{print > file"/split_"s".fa"}' file="${output}/temp/split/contigs" $contig
 
 
-for file in `ls`
+for file in `ls ${output}/temp/split/contigs`
 do
-    cat ${file} | grep '>' | sed 's/>//g' | awk 'BEGIN{FS=" "}{print $1}'  
+    cat ${output}/temp/split/contigs/${file} | grep '>' | sed 's/>//g' | awk 'BEGIN{FS=" "}{print $1}'
 done  > ${output}/temp/split/contig_name.txt
 
 
-
-for file in `ls`
+for file in `ls ${output}/temp/split/contigs`
 do
 echo ${file%.fa}
 done > ${output}/temp/split/split_file_name.txt
@@ -34,4 +32,4 @@ then
 ${Samtools} view -t 4  ${bamfile} ${file} > ${output}/temp/split/sams/${file}.sam
 cat ${output}/temp/split/sams/${file}.sam | grep "=" | awk '{print ">"$1"\n"$10}' > ${output}/temp/split/reads/${file}.read.fa
 fi
-done      
+done
