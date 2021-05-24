@@ -22,6 +22,11 @@ import warnings
 from sklearn.ensemble import IsolationForest
 from scipy import stats
 import logging
+import hashlib
+import requests
+import shutil
+import tarfile
+import gzip
 
 base_path = os.path.split(__file__)[0]
 contig_features = [
@@ -90,6 +95,9 @@ def get_opts(args):
     subparsers = parser.add_subparsers(title='metaMIC subcommands',
                                        dest='cmd',
                                        metavar='')
+
+    download_model = subparsers.add_parser('download_model',
+                                           help='download model')
 
     extract_feature = subparsers.add_parser('extract_feature',
                                             help='Extract features from inputs.')
@@ -294,6 +302,65 @@ def get_opts(args):
 
     return parser.parse_args(args)
 
+def get_file_md5(fname):
+    """
+    Calculate Md5 for downloaded file
+    """
+    m = hashlib.md5()
+    with open(fname,'rb') as fobj:
+        while True:
+            data = fobj.read(4096)
+            if not data:
+                break
+            m.update(data)
+
+    return m.hexdigest()
+
+def download_model(path, MD5):
+    os.makedirs(os.path.join(base_path, 'model'),exist_ok=True)
+    download_path = os.path.join(base_path, 'model',os.path.split(path)[1])
+
+    with requests.get(path, stream=True) as r:
+        with open(download_path, 'wb') as f:
+            shutil.copyfileobj(r.raw, f)
+    print('Download finished. Checking MD5...')
+
+    if get_file_md5(download_path) == MD5:
+        try:
+            tar = tarfile.open(download_path, "r:gz")
+            file_names = tar.getnames()
+            for file_name in file_names:
+                tar.extract(file_name, os.path.join(base_path, 'model'))
+            tar.close()
+        except Exception:
+            sys.stderr.write(
+                f"Error: cannot unzip the file.")
+            sys.exit(1)
+        os.remove(download_path)
+
+        model_file = os.listdir(os.path.join(base_path, 'model', os.path.split(path)[1].split('.')[0]))
+        for temp_gz in model_file:
+            try:
+                g_file = gzip.GzipFile(os.path.join(os.path.join(base_path, 'model', os.path.split(path)[1].split('.')[0]),temp_gz))
+                open(os.path.join(os.path.join(base_path, 'model', os.path.split(path)[1].split('.')[0]),temp_gz[:-3]), "wb+").write(g_file.read())
+                g_file.close()
+            except Exception:
+                sys.stderr.write(
+                    f"Error: cannot unzip the file.")
+                sys.exit(1)
+            os.remove(os.path.join(os.path.join(base_path, 'model', os.path.split(path)[1].split('.')[0]),temp_gz))
+
+    else:
+        os.remove(download_path)
+        sys.stderr.write(
+            f"Error: MD5 check failed, removing '{download_path}'.\n")
+        sys.exit(1)
+
+def download():
+    print('Downloading model for MEGAHIT')
+    download_model('https://zenodo.org/record/4781819/files/MEGAHIT.tar.gz', 'da9038af3582eea04288775a72003e6b')
+    print('Downloading model for IDBA_UD')
+    download_model('https://zenodo.org/record/4781819/files/IDBA_UD.tar.gz', '9f6835d3033a177055343ecaa78889bc')
 
 def filter_contig(options):
     """
@@ -643,7 +710,7 @@ def breakpoint_detect(options, data):
             sys.stderr.write(f"Error: Expected file '{f}' does not exist\n")
             sys.exit(1)
 
-        contig_score = pd.read_csv(os.path.join(options.contig_score), sep="\t", index_col=0)
+        contig_score = pd.read_csv(os.path.join(options.output, 'metaMIC_contig_score.txt'), sep="\t", index_col=0)
         score_cut = findcut(options, contig_score)
         filtered = contig_score.loc[contig_score['metaMIC_contig_score'] > score_cut, ]
         data = data[data['contig'].isin(filtered.index)]
@@ -746,8 +813,9 @@ def validate_options(options):
             options.mode = 'meta'
             logging.warning("Using default mode: [meta]")
 
-    if not os.path.exists(options.output):
-        os.makedirs(options.output, exist_ok=True)
+    if options.cmd != 'download_model':
+        if not os.path.exists(options.output):
+            os.makedirs(options.output, exist_ok=True)
 
     if options.cmd == 'extract_feature':
         if os.path.exists(os.path.join(options.output, "temp/contig/filtered_contigs.fa")):
@@ -822,6 +890,8 @@ def main():
     logger.info('Start metaMIC')
 
     options = validate_options(options)
+    if options.cmd == 'download_model':
+        download()
 
     ########### Extract four types of features from bamfile ###########
     if options.cmd == 'extract_feature':
