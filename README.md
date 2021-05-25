@@ -92,7 +92,7 @@ samtools mpileup -C 50 -A -f $contig_file $bam_file |  awk '$3 != "N"' > $pileup
 ```
 - run metaMIC
 
-For metagenomics
+#### For metagenomics
 
 ```
 # Step 1: extract features [output file: feature_matrix/window_fea_matrix.txt,feature_matrix/contig_fea_matrix.txt]
@@ -105,7 +105,7 @@ metaMIC extract_feature --bam $bam_file -c $contig_file -o $output_dir --pileup 
 
 metaMIC predict -c $contig_file -o $output_dir -a MEGAHIT -m meta
 ```
-For isolate genomes
+#### For isolate genomes
 
 ```
 # Step 1: extract features [output file: feature_matrix/window_fea_matrix.txt]
@@ -117,6 +117,28 @@ metaMIC extract_feature --bam $bam_file -c $contig_file -o $output_dir --pileup 
 # [output file: metaMIC_corrected_contigs.fa, misassembly_breakpoint.txt, anomaly_score.txt]
 
 metaMIC predict -c $contig_file -o $output_dir -m single
+```
+#### Training on new datasets
+
+If you want to generate a new training model on a novel dataset. Contig labels and name of new training models should be provided.
+The Step 1 is the same as above, then the contig_fea_matrix.txt will be used as the training datasets.
+
+
+```
+# Step 1: extract features [output file: feature_matrix/window_fea_matrix.txt,feature_matrix/contig_fea_matrix.txt]
+
+metaMIC extract_feature --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m meta
+
+# Step 2: Generating new training models
+# output directory must be same as the above $output_dir
+# format of contig_label file should be:
+# contig1\t0
+# contig2\t1
+# contig3\t0
+# ...
+# contig100\t0
+
+metaMIC train -o $output_dir -a $New_model_name --label $contig_label 
 ```
 
 
