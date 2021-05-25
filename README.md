@@ -96,22 +96,26 @@ For metagenomics
 
 ```
 # Step 1: extract features [output file: feature_matrix/window_fea_matrix.txt,feature_matrix/contig_fea_matrix.txt]
+
 metaMIC extract_feature --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m meta
 
 # Step 2: misassembly breakpoint identification and correction;
 # output directory must be same as the above $output_dir
 # [output file: metaMIC_corrected_contigs.fa, misassembly_breakpoint.txt, anomaly_score.txt]
-metaMIC predict -c $contig_file -o $output_dir -m meta
+
+metaMIC predict -c $contig_file -o $output_dir -a MEGAHIT -m meta
 ```
 For isolate genomes
 
 ```
 # Step 1: extract features [output file: feature_matrix/window_fea_matrix.txt]
+
 metaMIC extract_feature --bam $bam_file -c $contig_file -o $output_dir --pileup $pileup_file -m single
 
 # Step 2: misassembly breakpoint identification and correction;
 # output directory must be same as the above $output_dir
 # [output file: metaMIC_corrected_contigs.fa, misassembly_breakpoint.txt, anomaly_score.txt]
+
 metaMIC predict -c $contig_file -o $output_dir -m single
 ```
 
