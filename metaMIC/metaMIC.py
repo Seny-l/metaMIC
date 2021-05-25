@@ -747,6 +747,8 @@ def breakpoint_detect(options, data):
                                     "anomaly_thred",
                                     'metaMIC_contig_score',
                                     "contig_length"]
+        breakpoint_result = breakpoint_result.loc[breakpoint_result['misassembly_breakpoint'] > options.split_length, ]
+        breakpoint_result = breakpoint_result.loc[(breakpoint_result['contig_length'] - breakpoint_result['misassembly_breakpoint']) > options.split_length, ]
         breakpoint_result.to_csv(os.path.join(options.output,
                                               "misassembly_breakpoint.txt"), sep="\t")
     return breakpoint_result
