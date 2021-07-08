@@ -15,6 +15,8 @@ Make sure you have the dependencies below installed and accessible in your $PATH
 - [bwa 0.7.17](https://sourceforge.net/projects/bio-bwa/files/)
 - [samtools 1.9](https://sourceforge.net/projects/samtools/files/samtools/)
 - [jellyfish](http://www.cbcb.umd.edu/software/jellyfish/)
+- [scikit-learn](https://scikit-learn.org/stable/)
+- [scipy](https://www.scipy.org/)
 
 1. install python modules: pandas, numpy, pysam
 ```
