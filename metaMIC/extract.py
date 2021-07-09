@@ -17,7 +17,6 @@ import warnings
 import math
 import re
 from Bio import SeqIO
-from time import clock
 
 base_path = os.path.split(__file__)[0]
 
