@@ -67,7 +67,7 @@ export PATH=`pwd`/bin:$PATH
 ##### Install metaMIC via git
 
 ```
-git clone https://github.com/Seny-l/metaMIC.git
+git clone https://github.com/ZhaoXM-Lab/metaMIC.git
 ```
 - install and download [training models](https://zenodo.org/record/4781819#.YKm_omYzZTY) 
 
