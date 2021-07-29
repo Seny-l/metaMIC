@@ -27,6 +27,7 @@ import requests
 import shutil
 import tarfile
 import gzip
+from .extract import extract_features
 
 base_path = os.path.split(__file__)[0]
 contig_features = [
@@ -406,17 +407,7 @@ def extract_feature(options):
     if status:
         print("feature files exist and will not re-extract features")
     else:
-        extract_command = ' '.join(['python',
-                                    os.path.join(base_path,"extract.py"),
-                                    '--bam', options.bamfile,
-                                    '--contig', options.assemblies,
-                                    '--output', options.output,
-                                    '--mlen', str(options.min_length),
-                                    '--pileup', options.pileup,
-                                    '--samtools', options.samtools,
-                                    '--jellyfish', options.jellyfish,
-                                    "--thread", str(options.threads)])
-        os.system(extract_command)
+        extract_features(options)
         # check output features
         check_feature(options)
     # Generate contig-based/window-based matrix
@@ -786,15 +777,9 @@ def correct(options, breakpoint_result):
     corrected_file.close()
     print("A total of " + str(breakpoint_result.shape[0]) + " misassembled contigs are corrected")
 
-
+from .train import train
 def train_model(options, data):
-    train_commond = ' '.join(['python3',
-                              os.path.join(base_path, "train.py"),
-                              '--data', data,
-                              '--label', options.label,
-                              "--train", options.assembler,
-                              "--thread", str(options.threads)])
-    os.system(train_commond)
+    train(data, options)
 
 
 def bamindex(options):
