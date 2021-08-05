@@ -320,11 +320,16 @@ def get_file_md5(fname):
 def download_model(path, MD5):
     os.makedirs(os.path.join(base_path, 'model'),exist_ok=True)
     download_path = os.path.join(base_path, 'model',os.path.split(path)[1])
-
+    print(download_path)
     with requests.get(path, stream=True) as r:
         with open(download_path, 'wb') as f:
             shutil.copyfileobj(r.raw, f)
     print('Download finished. Checking MD5...')
+    if os.path.exists(os.path.join(base_path, 'model', 'MEGAHIT')):
+        shutil.rmtree(os.path.join(base_path, 'model', 'MEGAHIT'))
+
+    if os.path.exists(os.path.join(base_path, 'model', 'IDBA_UD')):
+        shutil.rmtree(os.path.join(base_path, 'model', 'IDBA_UD'))
 
     if get_file_md5(download_path) == MD5:
         try:
